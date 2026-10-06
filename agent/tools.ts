@@ -14,7 +14,7 @@ import { getUserFacts, removeUserFact, saveUserFact } from "./memory";
 export type Tool = {
   name: string;
   description: string;
-  category?: "paid" | "crypto" | "web" | "memory" | "utility";
+  category?: "paid" | "crypto" | "web" | "memory" | "creative" | "utility";
   /** JSON Schema describing the inputs. */
   parameters: object;
   /** The code that runs when the agent calls this tool. */
@@ -440,7 +440,54 @@ export const tools: Tool[] = [
       return { rolls, total: sum, sides, count: numRolls };
     },
   },
+
+  // ─── 11. Creative & Media Brief Generator (Creative Mode) ───
+  {
+    name: "generate_creative_brief",
+    category: "creative",
+    description:
+      "Generate structured creative briefs, campaign concepts, theme profiles (e.g. Autumn Jazz, Lo-Fi chill, brand tone, visual & acoustic direction).",
+    parameters: {
+      type: "object",
+      properties: {
+        theme: {
+          type: "string",
+          description: "Core theme or concept (e.g. 'Autumn Jazz Sunset', 'Cyberpunk Web3 Studio', 'Morning Coffee Lo-Fi')",
+        },
+        targetAudience: {
+          type: "string",
+          description: "Target demographic or platform (e.g. 'YouTube Chillhop listeners', 'Web3 builders', 'Coffee shop work playlist')",
+        },
+        mood: {
+          type: "string",
+          description: "Key emotions or atmosphere (e.g. 'Cozy, nostalgic, melodic brass, warm acoustic piano')",
+        },
+      },
+      required: ["theme"],
+    },
+    run: async ({ theme, targetAudience = "General Audience", mood = "Atmospheric & Inspiring" }) => {
+      return {
+        conceptName: theme,
+        audience: targetAudience,
+        moodAesthetic: mood,
+        creativePillars: [
+          "Sonic Identity: Warm acoustic undertones, subtle vinyl crackle, harmonic progression",
+          "Visual Motif: Golden hour hues, falling amber leaves, vintage analog grading",
+          "Narrative Hook: Evoking comfort, focus, and intimate evening ambiance",
+        ],
+        tracklistSuggestions: [
+          `${theme} Prelude (Intro)`,
+          "Amber Street Serenade",
+          "Midnight Espresso Swing",
+          "Golden Leaves Waltz",
+          "Closing Cadence (Outro)",
+        ],
+        status: "brief_generated",
+      };
+    },
+  },
 ];
+
 
 
 
