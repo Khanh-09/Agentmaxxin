@@ -20,6 +20,10 @@ export type AgentTask = {
   status: TaskStatus;
   idempotencyKey?: string;
   payloadHash?: string;
+  claimedBy?: string;
+  claimedAt?: string;
+  leaseExpiresAt?: string;
+  version: number;
   steps?: Array<{
     name: string;
     status: "pending" | "running" | "completed" | "failed";
@@ -30,6 +34,7 @@ export type AgentTask = {
   error?: string;
   sideEffects?: string[];
   unreversibleActions?: string[];
+  cancelledAtStep?: number;
   createdAt: string;
   startedAt?: string;
   completedAt?: string;
@@ -55,7 +60,7 @@ function readTasks(): AgentTask[] {
 
 function writeTasks(tasks: AgentTask[]) {
   try {
-    // Atomic file write using temp file
+    // Atomic file write using temp file and replace
     const tempFile = `${TASKS_FILE}.${Date.now()}.${Math.random().toString(36).slice(2, 6)}.tmp`;
     fs.writeFileSync(tempFile, JSON.stringify(tasks, null, 2), "utf8");
     fs.renameSync(tempFile, TASKS_FILE);
@@ -93,7 +98,6 @@ export function recoverInterruptedTasks(staleThresholdMs = 2 * 60 * 1000): numbe
   }
   return recoveredCount;
 }
-
 
 /**
  * Computes deterministic hash of a request payload.
@@ -143,6 +147,7 @@ export function createOrGetTask(data: {
     status: "queued",
     idempotencyKey: data.idempotencyKey,
     payloadHash,
+    version: 1,
     steps: [
       { name: "Phân tích yêu cầu & Lập kế hoạch", status: "pending" },
       { name: "Truy vấn Tools & Thu thập dữ liệu", status: "pending" },
@@ -157,6 +162,99 @@ export function createOrGetTask(data: {
   all.unshift(newTask);
   writeTasks(all);
   return { task: newTask, isDuplicate: false };
+}
+
+/**
+ * ATOMIC TASK CLAIMING:
+ * Allows a worker to claim a specific task atomically (Compare-and-Swap).
+ * Prevents multiple workers from executing the same task simultaneously.
+ */
+export function claimSpecificTask(
+  taskId: string,
+  workerId: string,
+  leaseDurationMs = 45000
+): { success: boolean; task?: AgentTask; error?: string } {
+  const all = readTasks();
+  const index = all.findIndex((t) => t.id === taskId);
+  if (index === -1) {
+    return { success: false, error: "Task not found." };
+  }
+
+  const current = all[index];
+  const now = Date.now();
+
+  // If already claimed by another active worker and lease not expired
+  if (
+    current.status === "running" &&
+    current.claimedBy &&
+    current.claimedBy !== workerId &&
+    current.leaseExpiresAt &&
+    new Date(current.leaseExpiresAt).getTime() > now
+  ) {
+    return {
+      success: false,
+      error: `Task is already claimed by active worker ${current.claimedBy}.`,
+    };
+  }
+
+  if (current.status === "cancelled" || current.status === "succeeded") {
+    return {
+      success: false,
+      error: `Task is already finalized with status ${current.status}.`,
+    };
+  }
+
+  // Atomically claim the task
+  const updated: AgentTask = {
+    ...current,
+    status: "running",
+    claimedBy: workerId,
+    claimedAt: new Date(now).toISOString(),
+    leaseExpiresAt: new Date(now + leaseDurationMs).toISOString(),
+    startedAt: current.startedAt || new Date(now).toISOString(),
+    version: (current.version || 1) + 1,
+  };
+
+  all[index] = updated;
+  writeTasks(all);
+  return { success: true, task: updated };
+}
+
+/**
+ * ATOMIC QUEUED TASK CLAIMING:
+ * Finds the next available queued task and claims it for the requesting worker.
+ */
+export function claimNextQueuedTask(
+  workerId: string,
+  leaseDurationMs = 45000
+): AgentTask | null {
+  const all = readTasks();
+  const now = Date.now();
+
+  const index = all.findIndex(
+    (t) =>
+      t.status === "queued" ||
+      (t.status === "running" &&
+        t.leaseExpiresAt &&
+        new Date(t.leaseExpiresAt).getTime() < now)
+  );
+
+  if (index === -1) return null;
+
+  const current = all[index];
+  const updated: AgentTask = {
+    ...current,
+    status: "running",
+    claimedBy: workerId,
+    claimedAt: new Date(now).toISOString(),
+    leaseExpiresAt: new Date(now + leaseDurationMs).toISOString(),
+    startedAt: current.startedAt || new Date(now).toISOString(),
+    version: (current.version || 1) + 1,
+  };
+
+  all[index] = updated;
+  writeTasks(all);
+  return updated;
 }
 
 /**
@@ -227,6 +325,7 @@ export function updateTask(
     startedAt,
     completedAt,
     durationMs,
+    version: (prev.version || 1) + 1,
     sideEffects: updates.sideEffects || prev.sideEffects || [],
     unreversibleActions: updates.unreversibleActions || prev.unreversibleActions || [],
   };

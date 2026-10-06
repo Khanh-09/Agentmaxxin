@@ -1,5 +1,371 @@
 [
   {
+    "id": "task_1791270729778_0y3yz",
+    "projectId": "proj_1791270729777",
+    "userId": "0xeb84754c2d05ef8cd92919f58befe16c8340082b",
+    "objective": "Bước 1: kiểm tra ví get_wallet_info, Bước 2: tìm kiếm get_web_search về Base Sepolia",
+    "status": "cancelled",
+    "payloadHash": "cadb3faa60ee5983228c71479e3b9079d0fe3f5a1a4a630f9b6e98888f973c4b",
+    "version": 3,
+    "steps": [
+      {
+        "name": "Phân tích yêu cầu & Lập kế hoạch",
+        "status": "pending"
+      },
+      {
+        "name": "Truy vấn Tools & Thu thập dữ liệu",
+        "status": "pending"
+      },
+      {
+        "name": "Tổng hợp thông tin & Kiểm chứng nguồn",
+        "status": "pending"
+      },
+      {
+        "name": "Đánh giá chất lượng & Trả kết quả",
+        "status": "pending"
+      }
+    ],
+    "sideEffects": [],
+    "unreversibleActions": [],
+    "createdAt": "2026-10-06T07:12:09.778Z",
+    "startedAt": "2026-10-06T07:12:09.779Z",
+    "error": "Tác vụ đã được hủy bởi người dùng.",
+    "completedAt": "2026-10-06T07:12:10.491Z"
+  },
+  {
+    "id": "task_1791270728416_1zb0x",
+    "projectId": "p1",
+    "userId": "u1",
+    "objective": "Task Beta",
+    "status": "running",
+    "idempotencyKey": "idem_B_1791270728415",
+    "version": 2,
+    "steps": [
+      {
+        "name": "Phân tích yêu cầu & Lập kế hoạch",
+        "status": "pending"
+      },
+      {
+        "name": "Truy vấn Tools & Thu thập dữ liệu",
+        "status": "pending"
+      },
+      {
+        "name": "Tổng hợp thông tin & Kiểm chứng nguồn",
+        "status": "pending"
+      },
+      {
+        "name": "Đánh giá chất lượng & Trả kết quả",
+        "status": "pending"
+      }
+    ],
+    "sideEffects": [],
+    "unreversibleActions": [],
+    "createdAt": "2026-10-06T07:12:08.416Z",
+    "claimedBy": "worker_node_1",
+    "claimedAt": "2026-10-06T07:12:08.417Z",
+    "leaseExpiresAt": "2026-10-06T07:12:53.417Z",
+    "startedAt": "2026-10-06T07:12:08.417Z"
+  },
+  {
+    "id": "task_1791270728414_rdfv1",
+    "projectId": "p1",
+    "userId": "u1",
+    "objective": "Task Alpha",
+    "status": "running",
+    "idempotencyKey": "idem_A_1791270728414",
+    "version": 2,
+    "steps": [
+      {
+        "name": "Phân tích yêu cầu & Lập kế hoạch",
+        "status": "pending"
+      },
+      {
+        "name": "Truy vấn Tools & Thu thập dữ liệu",
+        "status": "pending"
+      },
+      {
+        "name": "Tổng hợp thông tin & Kiểm chứng nguồn",
+        "status": "pending"
+      },
+      {
+        "name": "Đánh giá chất lượng & Trả kết quả",
+        "status": "pending"
+      }
+    ],
+    "sideEffects": [],
+    "unreversibleActions": [],
+    "createdAt": "2026-10-06T07:12:08.414Z",
+    "claimedBy": "worker_node_2",
+    "claimedAt": "2026-10-06T07:12:08.418Z",
+    "leaseExpiresAt": "2026-10-06T07:12:53.418Z",
+    "startedAt": "2026-10-06T07:12:08.418Z"
+  },
+  {
+    "id": "task_1791270728409_jfbu1",
+    "projectId": "proj_crash_test_1",
+    "userId": "user_alice",
+    "objective": "Tạo proposal chuyển tiền và gửi thông báo",
+    "status": "interrupted",
+    "idempotencyKey": "crash_idem_1791270728408",
+    "version": 2,
+    "steps": [
+      {
+        "name": "Phân tích yêu cầu & Lập kế hoạch",
+        "status": "pending"
+      },
+      {
+        "name": "Truy vấn Tools & Thu thập dữ liệu",
+        "status": "pending"
+      },
+      {
+        "name": "Tổng hợp thông tin & Kiểm chứng nguồn",
+        "status": "pending"
+      },
+      {
+        "name": "Đánh giá chất lượng & Trả kết quả",
+        "status": "pending"
+      }
+    ],
+    "sideEffects": [
+      "Đã phân tích số dư ví",
+      "Đã khởi tạo proposal ID: tx_prop_998877"
+    ],
+    "unreversibleActions": [
+      "Proposal tx_prop_998877 staged on-chain"
+    ],
+    "createdAt": "2026-10-06T07:12:08.409Z",
+    "startedAt": "2026-10-06T07:12:03.410Z",
+    "error": "Tác vụ bị gián đoạn do server restart. Sẵn sàng thử lại.",
+    "completedAt": "2026-10-06T07:12:08.412Z",
+    "recoveredFromCrash": true
+  },
+  {
+    "id": "task_1791270684614_1h4gh",
+    "projectId": "p1",
+    "userId": "u1",
+    "objective": "Task Beta",
+    "status": "interrupted",
+    "idempotencyKey": "idem_B_1791270684613",
+    "version": 2,
+    "steps": [
+      {
+        "name": "Phân tích yêu cầu & Lập kế hoạch",
+        "status": "pending"
+      },
+      {
+        "name": "Truy vấn Tools & Thu thập dữ liệu",
+        "status": "pending"
+      },
+      {
+        "name": "Tổng hợp thông tin & Kiểm chứng nguồn",
+        "status": "pending"
+      },
+      {
+        "name": "Đánh giá chất lượng & Trả kết quả",
+        "status": "pending"
+      }
+    ],
+    "sideEffects": [],
+    "unreversibleActions": [],
+    "createdAt": "2026-10-06T07:11:24.614Z",
+    "claimedBy": "worker_node_1",
+    "claimedAt": "2026-10-06T07:11:24.616Z",
+    "leaseExpiresAt": "2026-10-06T07:12:09.616Z",
+    "startedAt": "2026-10-06T07:11:24.616Z",
+    "error": "Tác vụ bị gián đoạn do server restart. Sẵn sàng thử lại.",
+    "completedAt": "2026-10-06T07:12:08.412Z",
+    "recoveredFromCrash": true
+  },
+  {
+    "id": "task_1791270684613_waijl",
+    "projectId": "p1",
+    "userId": "u1",
+    "objective": "Task Alpha",
+    "status": "interrupted",
+    "idempotencyKey": "idem_A_1791270684612",
+    "version": 2,
+    "steps": [
+      {
+        "name": "Phân tích yêu cầu & Lập kế hoạch",
+        "status": "pending"
+      },
+      {
+        "name": "Truy vấn Tools & Thu thập dữ liệu",
+        "status": "pending"
+      },
+      {
+        "name": "Tổng hợp thông tin & Kiểm chứng nguồn",
+        "status": "pending"
+      },
+      {
+        "name": "Đánh giá chất lượng & Trả kết quả",
+        "status": "pending"
+      }
+    ],
+    "sideEffects": [],
+    "unreversibleActions": [],
+    "createdAt": "2026-10-06T07:11:24.613Z",
+    "claimedBy": "worker_node_2",
+    "claimedAt": "2026-10-06T07:11:24.617Z",
+    "leaseExpiresAt": "2026-10-06T07:12:09.617Z",
+    "startedAt": "2026-10-06T07:11:24.617Z",
+    "error": "Tác vụ bị gián đoạn do server restart. Sẵn sàng thử lại.",
+    "completedAt": "2026-10-06T07:12:08.412Z",
+    "recoveredFromCrash": true
+  },
+  {
+    "id": "task_1791270684607_473ck",
+    "projectId": "proj_crash_test_1",
+    "userId": "user_alice",
+    "objective": "Tạo proposal chuyển tiền và gửi thông báo",
+    "status": "interrupted",
+    "idempotencyKey": "crash_idem_1791270684606",
+    "version": 2,
+    "steps": [
+      {
+        "name": "Phân tích yêu cầu & Lập kế hoạch",
+        "status": "pending"
+      },
+      {
+        "name": "Truy vấn Tools & Thu thập dữ liệu",
+        "status": "pending"
+      },
+      {
+        "name": "Tổng hợp thông tin & Kiểm chứng nguồn",
+        "status": "pending"
+      },
+      {
+        "name": "Đánh giá chất lượng & Trả kết quả",
+        "status": "pending"
+      }
+    ],
+    "sideEffects": [
+      "Đã phân tích số dư ví",
+      "Đã khởi tạo proposal ID: tx_prop_998877"
+    ],
+    "unreversibleActions": [
+      "Proposal tx_prop_998877 staged on-chain"
+    ],
+    "createdAt": "2026-10-06T07:11:24.607Z",
+    "startedAt": "2026-10-06T07:11:19.608Z",
+    "error": "Tác vụ bị gián đoạn do server restart. Sẵn sàng thử lại.",
+    "completedAt": "2026-10-06T07:11:24.610Z",
+    "recoveredFromCrash": true
+  },
+  {
+    "id": "task_1791270646678_fpf18",
+    "projectId": "p1",
+    "userId": "u1",
+    "objective": "Task Beta",
+    "status": "interrupted",
+    "idempotencyKey": "idem_B_1791270646677",
+    "version": 2,
+    "steps": [
+      {
+        "name": "Phân tích yêu cầu & Lập kế hoạch",
+        "status": "pending"
+      },
+      {
+        "name": "Truy vấn Tools & Thu thập dữ liệu",
+        "status": "pending"
+      },
+      {
+        "name": "Tổng hợp thông tin & Kiểm chứng nguồn",
+        "status": "pending"
+      },
+      {
+        "name": "Đánh giá chất lượng & Trả kết quả",
+        "status": "pending"
+      }
+    ],
+    "sideEffects": [],
+    "unreversibleActions": [],
+    "createdAt": "2026-10-06T07:10:46.678Z",
+    "claimedBy": "worker_node_1",
+    "claimedAt": "2026-10-06T07:10:46.679Z",
+    "leaseExpiresAt": "2026-10-06T07:11:31.679Z",
+    "startedAt": "2026-10-06T07:10:46.679Z",
+    "error": "Tác vụ bị gián đoạn do server restart. Sẵn sàng thử lại.",
+    "completedAt": "2026-10-06T07:11:24.610Z",
+    "recoveredFromCrash": true
+  },
+  {
+    "id": "task_1791270646677_eghq6",
+    "projectId": "p1",
+    "userId": "u1",
+    "objective": "Task Alpha",
+    "status": "interrupted",
+    "idempotencyKey": "idem_A_1791270646676",
+    "version": 2,
+    "steps": [
+      {
+        "name": "Phân tích yêu cầu & Lập kế hoạch",
+        "status": "pending"
+      },
+      {
+        "name": "Truy vấn Tools & Thu thập dữ liệu",
+        "status": "pending"
+      },
+      {
+        "name": "Tổng hợp thông tin & Kiểm chứng nguồn",
+        "status": "pending"
+      },
+      {
+        "name": "Đánh giá chất lượng & Trả kết quả",
+        "status": "pending"
+      }
+    ],
+    "sideEffects": [],
+    "unreversibleActions": [],
+    "createdAt": "2026-10-06T07:10:46.677Z",
+    "claimedBy": "worker_node_2",
+    "claimedAt": "2026-10-06T07:10:46.681Z",
+    "leaseExpiresAt": "2026-10-06T07:11:31.681Z",
+    "startedAt": "2026-10-06T07:10:46.681Z",
+    "error": "Tác vụ bị gián đoạn do server restart. Sẵn sàng thử lại.",
+    "completedAt": "2026-10-06T07:11:24.610Z",
+    "recoveredFromCrash": true
+  },
+  {
+    "id": "task_1791270646669_0vvh5",
+    "projectId": "proj_crash_test_1",
+    "userId": "user_alice",
+    "objective": "Tạo proposal chuyển tiền và gửi thông báo",
+    "status": "interrupted",
+    "idempotencyKey": "crash_idem_1791270646668",
+    "version": 2,
+    "steps": [
+      {
+        "name": "Phân tích yêu cầu & Lập kế hoạch",
+        "status": "pending"
+      },
+      {
+        "name": "Truy vấn Tools & Thu thập dữ liệu",
+        "status": "pending"
+      },
+      {
+        "name": "Tổng hợp thông tin & Kiểm chứng nguồn",
+        "status": "pending"
+      },
+      {
+        "name": "Đánh giá chất lượng & Trả kết quả",
+        "status": "pending"
+      }
+    ],
+    "sideEffects": [
+      "Đã phân tích số dư ví",
+      "Đã khởi tạo proposal ID: tx_prop_998877"
+    ],
+    "unreversibleActions": [
+      "Proposal tx_prop_998877 staged on-chain"
+    ],
+    "createdAt": "2026-10-06T07:10:46.669Z",
+    "startedAt": "2026-10-06T07:10:41.671Z",
+    "error": "Tác vụ bị gián đoạn do server restart. Sẵn sàng thử lại.",
+    "completedAt": "2026-10-06T07:10:46.674Z",
+    "recoveredFromCrash": true
+  },
+  {
     "id": "task_1791270470079_033qj",
     "projectId": "proj_1791270470078",
     "userId": "guest_c3164a97feaa408b",

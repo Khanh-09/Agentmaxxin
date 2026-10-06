@@ -4,18 +4,23 @@ import {
   verifySessionTokenDetailed,
   verifyWalletOwnership,
   getAuthenticatedSession,
+  issueChallengeNonce,
 } from "@/agent/auth";
 
 // GET /api/auth/session -> Checks existing session or returns a new server-generated guest token + challenge template
 export async function GET(req: Request) {
   try {
+    const { searchParams } = new URL(req.url);
+    const targetAddress = searchParams.get("address") || undefined;
+    const requestChallenge = searchParams.get("challenge") === "true" || Boolean(targetAddress);
+
     const authHeader = req.headers.get("authorization") || "";
     let rawToken = "";
     if (authHeader.startsWith("Bearer ")) {
       rawToken = authHeader.slice(7).trim();
     }
 
-    if (rawToken) {
+    if (rawToken && !requestChallenge) {
       const detailed = verifySessionTokenDetailed(rawToken);
       if (!detailed.valid) {
         return Response.json(
@@ -41,9 +46,9 @@ export async function GET(req: Request) {
       });
     }
 
-    // No token provided: generate fresh server-created guest session
+    // No token provided or challenge requested: generate fresh server-created guest session and issue single-use challenge nonce
     const guest = createServerGuestSession();
-    const challenge = `Sign in to AgentMaxx with challenge: ${crypto.randomUUID()} at timestamp: ${Date.now()}`;
+    const { challenge, nonce } = issueChallengeNonce(targetAddress);
 
     return Response.json({
       valid: true,
@@ -51,6 +56,7 @@ export async function GET(req: Request) {
       isWallet: false,
       token: guest.token,
       challengeTemplate: challenge,
+      nonce,
     });
   } catch (err: any) {
     return Response.json({ error: err.message }, { status: 500 });

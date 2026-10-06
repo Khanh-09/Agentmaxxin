@@ -1,9 +1,12 @@
 import crypto from "crypto";
+import fs from "fs";
 import { verifyMessage, getAddress, isAddress } from "viem";
+import { getStoragePath } from "@/lib/storage";
 
 const AUTH_SECRET = process.env.AUTH_SECRET || "agentmaxx-secure-auth-secret-key-2026";
 const TOKEN_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days token lifetime
 const CHALLENGE_MAX_AGE_MS = 5 * 60 * 1000; // 5 minutes challenge validity
+const NONCES_FILE = getStoragePath(".agent-nonces.json");
 
 export interface VerifiedSession {
   userId: string;
@@ -17,13 +20,104 @@ export type TokenVerificationResult =
   | { valid: true; userId: string; isWallet: boolean; address?: string }
   | { valid: false; reason: "INVALID_SIGNATURE" | "EXPIRED" | "MALFORMED" | "MISSING" };
 
+interface NonceRecord {
+  nonce: string;
+  address?: string;
+  expiresAt: number;
+  consumed: boolean;
+}
+
+function readNonces(): NonceRecord[] {
+  try {
+    if (fs.existsSync(NONCES_FILE)) {
+      const raw = fs.readFileSync(NONCES_FILE, "utf8");
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch {}
+  return [];
+}
+
+function writeNonces(nonces: NonceRecord[]) {
+  try {
+    const temp = `${NONCES_FILE}.${Date.now()}.tmp`;
+    fs.writeFileSync(temp, JSON.stringify(nonces, null, 2), "utf8");
+    fs.renameSync(temp, NONCES_FILE);
+  } catch {}
+}
+
+/**
+ * Issue a single-use cryptographically random challenge nonce.
+ */
+export function issueChallengeNonce(targetAddress?: string): { challenge: string; nonce: string } {
+  const nonce = crypto.randomBytes(16).toString("hex");
+  const now = Date.now();
+  const expiresAt = now + CHALLENGE_MAX_AGE_MS;
+  const challenge = `Sign in to AgentMaxx with nonce: ${nonce} at timestamp: ${now}`;
+
+  const nonces = readNonces().filter((n) => n.expiresAt > now); // Cleanup expired nonces
+  nonces.push({
+    nonce,
+    address: targetAddress ? targetAddress.toLowerCase() : undefined,
+    expiresAt,
+    consumed: false,
+  });
+  writeNonces(nonces);
+
+  return { challenge, nonce };
+}
+
+/**
+ * Validates and atomically consumes a challenge nonce (Replay Attack Prevention).
+ */
+export function validateAndConsumeNonce(
+  message: string,
+  address?: string
+): { valid: boolean; error?: string } {
+  const nonceMatch = message.match(/nonce:\s*([a-fA-F0-9]+)/i);
+  if (!nonceMatch || !nonceMatch[1]) {
+    return { valid: false, error: "Challenge message is missing a valid challenge nonce." };
+  }
+
+  const nonce = nonceMatch[1];
+  const now = Date.now();
+  const nonces = readNonces();
+  const recordIndex = nonces.findIndex((n) => n.nonce === nonce);
+
+  if (recordIndex === -1) {
+    return { valid: false, error: "Challenge nonce not found, unknown, or issued for a different session." };
+  }
+
+  const record = nonces[recordIndex];
+
+  if (record.consumed) {
+    return {
+      valid: false,
+      error: "Replay attack detected: Challenge nonce has already been consumed and cannot be reused.",
+    };
+  }
+
+  if (record.expiresAt < now) {
+    return { valid: false, error: "Challenge nonce has expired (valid for 5 minutes only)." };
+  }
+
+  if (record.address && address && record.address !== address.toLowerCase()) {
+    return { valid: false, error: "Challenge nonce was issued for a different wallet address." };
+  }
+
+  // Atomically mark consumed
+  nonces[recordIndex].consumed = true;
+  writeNonces(nonces);
+
+  return { valid: true };
+}
+
 function signPayload(payload: string): string {
   return crypto.createHmac("sha256", AUTH_SECRET).update(payload).digest("hex");
 }
 
 /**
  * Generate a cryptographically signed session token.
- * Token format: base64url(userId:isWallet:timestamp):signature
  */
 export function createSessionToken(userId: string, isWallet = false, address?: string): string {
   const cleanUser = (address || userId).toLowerCase().trim();
@@ -101,8 +195,8 @@ export function verifySessionToken(token: string): { userId: string; isWallet: b
 }
 
 /**
- * Verifies cryptographic proof of wallet ownership (EIP-191 personal_sign).
- * Requires client to sign a verifiable challenge containing timestamp.
+ * Verifies cryptographic proof of wallet ownership (EIP-191 personal_sign)
+ * with strict nonce replay protection and expiration check.
  */
 export async function verifyWalletOwnership(params: {
   address: string;
@@ -119,10 +213,16 @@ export async function verifyWalletOwnership(params: {
     return { success: false, error: "Challenge message and signature are required." };
   }
 
+  // 1. Verify nonce existence, expiration, and replay consumption
+  const nonceCheck = validateAndConsumeNonce(message, address);
+  if (!nonceCheck.valid) {
+    return { success: false, error: nonceCheck.error };
+  }
+
   try {
     const checksumAddress = getAddress(address);
 
-    // Verify cryptographic signature via viem
+    // 2. Verify cryptographic signature via viem
     const isValid = await verifyMessage({
       address: checksumAddress,
       message,
@@ -131,15 +231,6 @@ export async function verifyWalletOwnership(params: {
 
     if (!isValid) {
       return { success: false, error: "Cryptographic signature does not match the claiming wallet address." };
-    }
-
-    // Parse challenge timestamp to prevent replay attacks
-    const timeMatch = message.match(/timestamp:\s*(\d+)/i);
-    if (timeMatch && timeMatch[1]) {
-      const msgTime = parseInt(timeMatch[1], 10);
-      if (Math.abs(Date.now() - msgTime) > CHALLENGE_MAX_AGE_MS) {
-        return { success: false, error: "Challenge timestamp has expired (must be signed within 5 minutes)." };
-      }
     }
 
     return { success: true, checksumAddress };
