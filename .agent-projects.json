@@ -1,5 +1,532 @@
 [
   {
+    "id": "proj_1791276790302",
+    "userId": "guest_1f098897477b4a8c",
+    "title": "lô",
+    "objective": "lô",
+    "status": "ACTIVE",
+    "domain": "research",
+    "messages": [
+      {
+        "role": "user",
+        "text": "lô"
+      },
+      {
+        "role": "agent",
+        "text": "Chào bro Khanh! Chúc bro một ngày làm việc và xây dựng tuyệt vời. \n\nBro muốn mình hỗ trợ gì hôm nay nhỉ? Check giá crypto, xem thời tiết, phân tích smart contract hay code lách gì cứ nói nhé! 😎🚀",
+        "steps": [],
+        "domain": "research"
+      }
+    ],
+    "currentTaskId": "task_1791276790310_55g5h",
+    "currentTaskStatus": "succeeded",
+    "createdAt": "2026-10-06T08:53:13.087Z",
+    "updatedAt": "2026-10-06T08:53:13.087Z"
+  },
+  {
+    "id": "proj_1791276252652",
+    "userId": "guest_1f098897477b4a8c",
+    "title": "HI BRO",
+    "objective": "HI BRO",
+    "status": "ACTIVE",
+    "domain": "research",
+    "messages": [
+      {
+        "role": "user",
+        "text": "HI BRO"
+      },
+      {
+        "role": "agent",
+        "text": "Chào bro Khanh! Chúc một ngày làm việc tràn đầy năng lượng và hiệu quả nhé! \n\nHôm nay tôi có thể hỗ trợ gì cho bro? (Kiểm tra crypto, tra cứu dữ liệu web, phân tích smart contract, hay tính toán bất kỳ điều gì cứ nói tôi nhé! 🚀)",
+        "steps": [],
+        "domain": "research"
+      },
+      {
+        "role": "user",
+        "text": "search cho tôi giá BTC"
+      },
+      {
+        "role": "agent",
+        "text": "Dưới đây là cập nhật giá Bitcoin (BTC) mới nhất cho bro Khanh:\n\n### 📌 Kết Luận Chính (Key Findings)\n- **Giá hiện tại của BTC:** **$85,887 USD**\n- **Biến động 24h:** Giảm nhẹ **-0.46%**\n- **Vốn hóa thị trường:** ~$1,725.56 tỷ USD\n\nNếu bro cần xem biểu đồ kỹ thuật, tính chỉ báo RSI hay kiểm tra thêm các đồng coin khác (như ETH yêu thích của bro chẳng hạn), cứ báo tôi nhé! 🚀",
+        "steps": [
+          {
+            "tool": "get_crypto_price",
+            "args": {
+              "symbol": "btc"
+            },
+            "result": {
+              "coin": "bitcoin",
+              "symbol": "BTC",
+              "price": "85,887 USD",
+              "change24h": "-0.46%",
+              "marketCap": "1,725,566,905,507 USD"
+            },
+            "error": false
+          }
+        ],
+        "domain": "research"
+      },
+      {
+        "role": "user",
+        "text": "tHỜI TIẾT HÔM NAY NTN "
+      },
+      {
+        "role": "agent",
+        "text": "Thời tiết hôm nay tại Hà Nội rất đẹp đúng với sở thích \"*trời trong, mát mẻ*\" của bro Khanh đây! ☀️\n\n### 📌 Kết Luận Chính (Key Findings)\n- **Tình trạng thời tiết:** Trời trong xanh, nắng nhẹ (*Clear sky*), rất lý tưởng cho các hoạt động ngoài trời.\n- **Nhiệt độ hiện tại:** **27.5°C** (Cảm giác thực tế khoảng **28.2°C**).\n- **Độ ẩm:** Khá dễ chịu ở mức **49%**.\n- **Gió:** Nhẹ nhàng khoảng **9 km/h**.\n- **Lượng mưa:** 0 mm (Không có mưa).\n\nHôm nay thời tiết quá tuyệt vời để ra ngoài dạo phố hoặc làm việc đấy bro ơi!",
+        "steps": [
+          {
+            "tool": "get_weather",
+            "args": {
+              "city": "Hanoi"
+            },
+            "result": {
+              "data": {
+                "city": "Hanoi",
+                "region": "Hanoi",
+                "country": "Vietnam",
+                "coordinates": {
+                  "latitude": 21.0245,
+                  "longitude": 105.84117
+                },
+                "temperatureC": 27.5,
+                "feelsLikeC": 28.2,
+                "humidity": "49%",
+                "windSpeed": "9 km/h",
+                "precipitation": "0 mm",
+                "isDay": true,
+                "condition": "Clear sky ☀️",
+                "paidBy": "0x782445C5A8AFeB6224180e640e0D5987b56fe08e",
+                "paidAmount": "0.01 USDC",
+                "dataSource": "Open-Meteo Live API",
+                "timestamp": "2026-10-06T08:45:37.764Z"
+              },
+              "payment": {
+                "status": 200,
+                "amount": "0.01 USDC",
+                "to": "0x000000000000000000000000000000000000dEaD",
+                "signature": "0x4019dfb0e8701836..."
+              }
+            },
+            "error": false
+          }
+        ],
+        "domain": "research"
+      }
+    ],
+    "currentTaskId": "task_1791276332548_yz190",
+    "currentTaskStatus": "succeeded",
+    "createdAt": "2026-10-06T08:44:14.566Z",
+    "updatedAt": "2026-10-06T08:45:39.150Z"
+  },
+  {
+    "id": "proj_1791275328812_7vcf",
+    "userId": "guest_6fe55947861f4876",
+    "title": "Persistent Research Project to Resume",
+    "objective": "Nghiên cứu về Ethereum Consensus và lưu trữ",
+    "status": "ACTIVE",
+    "domain": "general",
+    "messages": [
+      {
+        "role": "user",
+        "text": "Tóm tắt cơ chế Proof of Stake của Ethereum và dẫn nguồn."
+      }
+    ],
+    "currentTaskStatus": "queued",
+    "createdAt": "2026-10-06T08:28:48.812Z",
+    "updatedAt": "2026-10-06T08:28:48.812Z"
+  },
+  {
+    "id": "proj_1791275317400_cd7o",
+    "userId": "guest_eef07e0953dd4fbd",
+    "title": "Controlled Error Recovery Test",
+    "objective": "Kiểm tra xử lý lỗi khi mạng hoặc tham số bất thường",
+    "status": "ACTIVE",
+    "domain": "general",
+    "messages": [
+      {
+        "role": "user",
+        "text": "Hãy đọc trang web tại URL không tồn tại https://non-existent-domain-error-test-404-500.org/data và tóm tắt"
+      }
+    ],
+    "currentTaskStatus": "queued",
+    "createdAt": "2026-10-06T08:28:37.400Z",
+    "updatedAt": "2026-10-06T08:28:37.400Z"
+  },
+  {
+    "id": "proj_1791275309090_ugoc",
+    "userId": "guest_d8a1af0995dd42f1",
+    "title": "Differing Measurement Conditions Analysis",
+    "objective": "So sánh TPS lý thuyết vs thực tế Ethereum",
+    "status": "ACTIVE",
+    "domain": "general",
+    "messages": [
+      {
+        "role": "user",
+        "text": "So sánh TPS lý thuyết tối đa của Ethereum Layer 1 với TPS thực tế trung bình dưới tải mạng thông thường, dẫn nguồn."
+      }
+    ],
+    "currentTaskStatus": "queued",
+    "createdAt": "2026-10-06T08:28:29.090Z",
+    "updatedAt": "2026-10-06T08:28:29.090Z"
+  },
+  {
+    "id": "proj_1791275305951_ubib",
+    "userId": "guest_ab7239c72e684081",
+    "title": "Zero Data Negative Query",
+    "objective": "Kiểm tra phản hồi khi không có dữ liệu",
+    "status": "ACTIVE",
+    "domain": "general",
+    "messages": [
+      {
+        "role": "user",
+        "text": "Thống kê giao dịch của mạng blockchain fake_nonexistent_token_2026_xyz123"
+      }
+    ],
+    "currentTaskStatus": "queued",
+    "createdAt": "2026-10-06T08:28:25.951Z",
+    "updatedAt": "2026-10-06T08:28:25.951Z"
+  },
+  {
+    "id": "proj_1791275296493_dkfk",
+    "userId": "guest_0dbc5467dc2a4b4a",
+    "title": "Live Base L2 Architecture Research",
+    "objective": "Tìm hiểu kiến trúc Rollup và Optimism Superchain",
+    "status": "ACTIVE",
+    "domain": "general",
+    "messages": [
+      {
+        "role": "user",
+        "text": "Tìm thông tin về Optimism OP Stack và kiến trúc Rollup, dẫn nguồn thực tế."
+      }
+    ],
+    "currentTaskStatus": "queued",
+    "createdAt": "2026-10-06T08:28:16.493Z",
+    "updatedAt": "2026-10-06T08:28:16.493Z"
+  },
+  {
+    "id": "proj_1791274784198_dfdb",
+    "userId": "guest_453a9254afda4917",
+    "title": "Persistent Research Project to Resume",
+    "objective": "Nghiên cứu về Ethereum Consensus và lưu trữ",
+    "status": "ACTIVE",
+    "domain": "general",
+    "messages": [
+      {
+        "role": "user",
+        "text": "Tóm tắt cơ chế Proof of Stake của Ethereum và dẫn nguồn."
+      }
+    ],
+    "currentTaskStatus": "queued",
+    "createdAt": "2026-10-06T08:19:44.198Z",
+    "updatedAt": "2026-10-06T08:19:44.198Z"
+  },
+  {
+    "id": "proj_1791274772839_1ao7",
+    "userId": "guest_308f175a5eb8424f",
+    "title": "Controlled Error Recovery Test",
+    "objective": "Kiểm tra xử lý lỗi khi mạng hoặc tham số bất thường",
+    "status": "ACTIVE",
+    "domain": "general",
+    "messages": [
+      {
+        "role": "user",
+        "text": "Hãy đọc trang web tại URL không tồn tại https://non-existent-domain-error-test-404-500.org/data và tóm tắt"
+      }
+    ],
+    "currentTaskStatus": "queued",
+    "createdAt": "2026-10-06T08:19:32.839Z",
+    "updatedAt": "2026-10-06T08:19:32.839Z"
+  },
+  {
+    "id": "proj_1791274764534_62pc",
+    "userId": "guest_b80d2295d9e64a31",
+    "title": "Differing Measurement Conditions Analysis",
+    "objective": "So sánh TPS lý thuyết vs thực tế Ethereum",
+    "status": "ACTIVE",
+    "domain": "general",
+    "messages": [
+      {
+        "role": "user",
+        "text": "So sánh TPS lý thuyết tối đa của Ethereum Layer 1 với TPS thực tế trung bình dưới tải mạng thông thường, dẫn nguồn."
+      }
+    ],
+    "currentTaskStatus": "queued",
+    "createdAt": "2026-10-06T08:19:24.534Z",
+    "updatedAt": "2026-10-06T08:19:24.534Z"
+  },
+  {
+    "id": "proj_1791274761388_vgt2",
+    "userId": "guest_18c81b9b796d4441",
+    "title": "Zero Data Negative Query",
+    "objective": "Kiểm tra phản hồi khi không có dữ liệu",
+    "status": "ACTIVE",
+    "domain": "general",
+    "messages": [
+      {
+        "role": "user",
+        "text": "Thống kê giao dịch của mạng blockchain fake_nonexistent_token_2026_xyz123"
+      }
+    ],
+    "currentTaskStatus": "queued",
+    "createdAt": "2026-10-06T08:19:21.388Z",
+    "updatedAt": "2026-10-06T08:19:21.388Z"
+  },
+  {
+    "id": "proj_1791274752069_yhiv",
+    "userId": "guest_41c3a70418f4427b",
+    "title": "Live Base L2 Architecture Research",
+    "objective": "Tìm hiểu kiến trúc Rollup và Optimism Superchain",
+    "status": "ACTIVE",
+    "domain": "general",
+    "messages": [
+      {
+        "role": "user",
+        "text": "Tìm thông tin về Optimism OP Stack và kiến trúc Rollup, dẫn nguồn thực tế."
+      }
+    ],
+    "currentTaskStatus": "queued",
+    "createdAt": "2026-10-06T08:19:12.069Z",
+    "updatedAt": "2026-10-06T08:19:12.069Z"
+  },
+  {
+    "id": "proj_1791274104191_uzby",
+    "userId": "guest_e8088d23592e4447",
+    "title": "Persistent Research Project to Resume",
+    "objective": "Nghiên cứu về Ethereum Consensus và lưu trữ",
+    "status": "ACTIVE",
+    "domain": "general",
+    "messages": [
+      {
+        "role": "user",
+        "text": "Tóm tắt cơ chế Proof of Stake của Ethereum và dẫn nguồn."
+      }
+    ],
+    "currentTaskStatus": "queued",
+    "createdAt": "2026-10-06T08:08:24.191Z",
+    "updatedAt": "2026-10-06T08:08:24.191Z"
+  },
+  {
+    "id": "proj_1791274092819_716x",
+    "userId": "guest_d6527fd2faa74cae",
+    "title": "Controlled Error Recovery Test",
+    "objective": "Kiểm tra xử lý lỗi khi mạng hoặc tham số bất thường",
+    "status": "ACTIVE",
+    "domain": "general",
+    "messages": [
+      {
+        "role": "user",
+        "text": "Hãy đọc trang web tại URL không tồn tại https://non-existent-domain-error-test-404-500.org/data và tóm tắt"
+      }
+    ],
+    "currentTaskStatus": "queued",
+    "createdAt": "2026-10-06T08:08:12.819Z",
+    "updatedAt": "2026-10-06T08:08:12.819Z"
+  },
+  {
+    "id": "proj_1791274080258_5edp",
+    "userId": "guest_d52daed53b7c4075",
+    "title": "Differing Measurement Conditions Analysis",
+    "objective": "So sánh TPS lý thuyết vs thực tế Ethereum",
+    "status": "ACTIVE",
+    "domain": "general",
+    "messages": [
+      {
+        "role": "user",
+        "text": "So sánh TPS lý thuyết tối đa của Ethereum Layer 1 với TPS thực tế trung bình dưới tải mạng thông thường, dẫn nguồn."
+      }
+    ],
+    "currentTaskStatus": "queued",
+    "createdAt": "2026-10-06T08:08:00.258Z",
+    "updatedAt": "2026-10-06T08:08:00.258Z"
+  },
+  {
+    "id": "proj_1791274077104_uwaz",
+    "userId": "guest_aa26abae5a3049fa",
+    "title": "Zero Data Negative Query",
+    "objective": "Kiểm tra phản hồi khi không có dữ liệu",
+    "status": "ACTIVE",
+    "domain": "general",
+    "messages": [
+      {
+        "role": "user",
+        "text": "Thống kê giao dịch của mạng blockchain fake_nonexistent_token_2026_xyz123"
+      }
+    ],
+    "currentTaskStatus": "queued",
+    "createdAt": "2026-10-06T08:07:57.104Z",
+    "updatedAt": "2026-10-06T08:07:57.104Z"
+  },
+  {
+    "id": "proj_1791274067770_6450",
+    "userId": "guest_683996007d274529",
+    "title": "Live Base L2 Architecture Research",
+    "objective": "Tìm hiểu kiến trúc Rollup và Optimism Superchain",
+    "status": "ACTIVE",
+    "domain": "general",
+    "messages": [
+      {
+        "role": "user",
+        "text": "Tìm thông tin về Optimism OP Stack và kiến trúc Rollup, dẫn nguồn thực tế."
+      }
+    ],
+    "currentTaskStatus": "queued",
+    "createdAt": "2026-10-06T08:07:47.770Z",
+    "updatedAt": "2026-10-06T08:07:47.770Z"
+  },
+  {
+    "id": "proj_1791273807998_l1fj",
+    "userId": "guest_9844918b923c4243",
+    "title": "Persistent Research Project to Resume",
+    "objective": "Nghiên cứu về Ethereum Consensus và lưu trữ",
+    "status": "ACTIVE",
+    "domain": "general",
+    "messages": [
+      {
+        "role": "user",
+        "text": "Tóm tắt cơ chế Proof of Stake của Ethereum và dẫn nguồn."
+      }
+    ],
+    "currentTaskStatus": "queued",
+    "createdAt": "2026-10-06T08:03:27.998Z",
+    "updatedAt": "2026-10-06T08:03:27.998Z"
+  },
+  {
+    "id": "proj_1791273796635_d111",
+    "userId": "guest_c301cb42650e4728",
+    "title": "Controlled Error Recovery Test",
+    "objective": "Kiểm tra xử lý lỗi khi mạng hoặc tham số bất thường",
+    "status": "ACTIVE",
+    "domain": "general",
+    "messages": [
+      {
+        "role": "user",
+        "text": "Hãy đọc trang web tại URL không tồn tại https://non-existent-domain-error-test-404-500.org/data và tóm tắt"
+      }
+    ],
+    "currentTaskStatus": "queued",
+    "createdAt": "2026-10-06T08:03:16.635Z",
+    "updatedAt": "2026-10-06T08:03:16.635Z"
+  },
+  {
+    "id": "proj_1791273784261_lmmp",
+    "userId": "guest_84f8e1df5cbb4985",
+    "title": "Differing Measurement Conditions Analysis",
+    "objective": "So sánh TPS lý thuyết vs thực tế Ethereum",
+    "status": "ACTIVE",
+    "domain": "general",
+    "messages": [
+      {
+        "role": "user",
+        "text": "So sánh TPS lý thuyết tối đa của Ethereum Layer 1 với TPS thực tế trung bình dưới tải mạng thông thường, dẫn nguồn."
+      }
+    ],
+    "currentTaskStatus": "queued",
+    "createdAt": "2026-10-06T08:03:04.261Z",
+    "updatedAt": "2026-10-06T08:03:04.261Z"
+  },
+  {
+    "id": "proj_1791273781117_if8p",
+    "userId": "guest_40f7628fef2145e8",
+    "title": "Zero Data Negative Query",
+    "objective": "Kiểm tra phản hồi khi không có dữ liệu",
+    "status": "ACTIVE",
+    "domain": "general",
+    "messages": [
+      {
+        "role": "user",
+        "text": "Thống kê giao dịch của mạng blockchain fake_nonexistent_token_2026_xyz123"
+      }
+    ],
+    "currentTaskStatus": "queued",
+    "createdAt": "2026-10-06T08:03:01.117Z",
+    "updatedAt": "2026-10-06T08:03:01.117Z"
+  },
+  {
+    "id": "proj_1791273771728_o4px",
+    "userId": "guest_e91dd359d7a24cbc",
+    "title": "Live Base L2 Architecture Research",
+    "objective": "Tìm hiểu kiến trúc Rollup và Optimism Superchain",
+    "status": "ACTIVE",
+    "domain": "general",
+    "messages": [
+      {
+        "role": "user",
+        "text": "Tìm thông tin về Optimism OP Stack và kiến trúc Rollup, dẫn nguồn thực tế."
+      }
+    ],
+    "currentTaskStatus": "queued",
+    "createdAt": "2026-10-06T08:02:51.729Z",
+    "updatedAt": "2026-10-06T08:02:51.729Z"
+  },
+  {
+    "id": "proj_1791273688274_cud4",
+    "userId": "guest_fa79868541ae49de",
+    "title": "Controlled Error Recovery Test",
+    "objective": "Kiểm tra xử lý lỗi khi mạng hoặc tham số bất thường",
+    "status": "ACTIVE",
+    "domain": "general",
+    "messages": [
+      {
+        "role": "user",
+        "text": "Hãy đọc trang web tại URL không tồn tại https://non-existent-domain-error-test-404-500.org/data và tóm tắt"
+      }
+    ],
+    "currentTaskStatus": "queued",
+    "createdAt": "2026-10-06T08:01:28.274Z",
+    "updatedAt": "2026-10-06T08:01:28.274Z"
+  },
+  {
+    "id": "proj_1791273680012_mxk3",
+    "userId": "guest_48542dd9e2dc4b11",
+    "title": "Differing Measurement Conditions Analysis",
+    "objective": "So sánh TPS lý thuyết vs thực tế Ethereum",
+    "status": "ACTIVE",
+    "domain": "general",
+    "messages": [
+      {
+        "role": "user",
+        "text": "So sánh TPS lý thuyết tối đa của Ethereum Layer 1 với TPS thực tế trung bình dưới tải mạng thông thường, dẫn nguồn."
+      }
+    ],
+    "currentTaskStatus": "queued",
+    "createdAt": "2026-10-06T08:01:20.012Z",
+    "updatedAt": "2026-10-06T08:01:20.012Z"
+  },
+  {
+    "id": "proj_1791273676869_kn3t",
+    "userId": "guest_8fc2f92c7b484404",
+    "title": "Zero Data Negative Query",
+    "objective": "Kiểm tra phản hồi khi không có dữ liệu",
+    "status": "ACTIVE",
+    "domain": "general",
+    "messages": [
+      {
+        "role": "user",
+        "text": "Thống kê giao dịch của mạng blockchain fake_nonexistent_token_2026_xyz123"
+      }
+    ],
+    "currentTaskStatus": "queued",
+    "createdAt": "2026-10-06T08:01:16.869Z",
+    "updatedAt": "2026-10-06T08:01:16.869Z"
+  },
+  {
+    "id": "proj_1791273666498_shl0",
+    "userId": "guest_f6268a1235924184",
+    "title": "Live Base L2 Architecture Research",
+    "objective": "Tìm hiểu kiến trúc Rollup và Optimism Superchain",
+    "status": "ACTIVE",
+    "domain": "general",
+    "messages": [
+      {
+        "role": "user",
+        "text": "Tìm thông tin về Optimism OP Stack và kiến trúc Rollup, dẫn nguồn thực tế."
+      }
+    ],
+    "currentTaskStatus": "queued",
+    "createdAt": "2026-10-06T08:01:06.498Z",
+    "updatedAt": "2026-10-06T08:01:06.498Z"
+  },
+  {
     "id": "proj_1791273236834_a8ci",
     "userId": "guest_92b951eb35a143ff",
     "title": "Persistent Research Project to Resume",

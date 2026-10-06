@@ -25,6 +25,8 @@ import { getUserFacts, saveUserFact } from "./memory";
 
 
 
+import { createTransferProposal } from "./proposals";
+
 export type Tool = {
   name: string;
   description: string;
@@ -32,7 +34,7 @@ export type Tool = {
   /** JSON Schema describing the inputs. */
   parameters: object;
   /** The code that runs when the agent calls this tool. */
-  run: (args: any, ctx: { baseUrl: string }) => Promise<unknown>;
+  run: (args: any, ctx: { baseUrl: string; abortSignal?: AbortSignal; userId?: string }) => Promise<unknown>;
 };
 
 export const tools: Tool[] = [
@@ -46,28 +48,69 @@ export const tools: Tool[] = [
     run: async () => getWalletInfo(),
   },
 
-  // ─── 2. Web3 Transfer Tool: Prepare Transfer & Check Balance (Human-in-the-Loop) ───
+  // ─── 2. Web3 Transfer Tool: Prepare Transfer Proposal (Human-In-The-Loop) ───
   {
     name: "prepare_transfer",
     category: "crypto",
     description:
-      "Check recipient address validity, balance sufficiency, estimate gas, and prepare a transfer proposal requiring user confirmation.",
+      "Validate recipient address and amount, check precision without float math, estimate gas on Base Sepolia, and create a verifiable transfer proposal for user confirmation. This tool NEVER sends transactions directly.",
     parameters: {
       type: "object",
       properties: {
+        to: {
+          type: "string",
+          description: "Recipient Ethereum address (0x... 42 characters hex string) on Base Sepolia",
+        },
         toAddress: {
           type: "string",
-          description: "Recipient Ethereum address (0x... 42 characters) on Base Sepolia",
+          description: "Alternative parameter name for recipient address",
         },
         amountEth: {
           type: "string",
-          description: "Amount of ETH to send (e.g. '0.001' or '0.05')",
+          description: "Exact amount of native test ETH to transfer (e.g. '0.001', '0.05'). Must be positive string.",
+        },
+        amount: {
+          type: "string",
+          description: "Alternative parameter name for transfer amount",
         },
       },
-      required: ["toAddress", "amountEth"],
+      required: ["amountEth"],
     },
-    run: async ({ toAddress, amountEth }) => {
-      return prepareTransferProposal(toAddress, String(amountEth));
+    run: async (args, ctx) => {
+      const targetTo = (args.to || args.toAddress || "").trim();
+      const targetAmount = String(args.amountEth || args.amount || "").trim();
+      const userId = ctx?.userId || "guest_default";
+
+      const res = await createTransferProposal({
+        to: targetTo,
+        amountEth: targetAmount,
+        userId,
+      });
+
+      if (!res.success) {
+        return {
+          status: "FAILED_VALIDATION",
+          error: res.error,
+          proposalCreated: false,
+        };
+      }
+
+      const p = res.proposal!;
+      return {
+        status: "PROPOSAL_CREATED",
+        proposalId: p.id,
+        network: p.network,
+        chainId: p.chainId,
+        recipient: p.to,
+        amountEth: p.amountEth,
+        amountWeiString: p.amountWeiString,
+        estimatedGasEth: p.estimatedGasEth,
+        estimatedTotalEth: p.estimatedTotalEth,
+        expiresAt: p.expiresAt,
+        requiresHumanApproval: true,
+        instructions:
+          "Transfer proposal successfully created. You MUST inform the user to review the details and confirm the transaction with their browser wallet in the UI preview panel.",
+      };
     },
   },
 

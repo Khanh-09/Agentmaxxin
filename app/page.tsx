@@ -109,6 +109,30 @@ type UserInteractionMemory = {
   toolsUsed?: string[];
   domain?: string;
 };
+type TransferProposal = {
+  id: string;
+  userId: string;
+  projectId?: string;
+  taskId?: string;
+  from: string;
+  to: string;
+  amountEth: string;
+  amountWeiHex: string;
+  amountWeiString: string;
+  network: "Base Sepolia";
+  chainId: 84532;
+  estimatedGasEth: string;
+  estimatedTotalEth: string;
+  status: "PENDING_APPROVAL" | "REJECTED" | "PENDING_RECEIPT" | "CONFIRMED" | "FAILED" | "EXPIRED";
+  txHash?: string;
+  blockNumber?: number;
+  gasUsed?: string;
+  createdAt: string;
+  expiresAt: string;
+  confirmedAt?: string;
+  error?: string;
+  rejectionReason?: string;
+};
 type ProjectTask = {
   id: string;
   userId: string;
@@ -233,6 +257,9 @@ export default function Home() {
   const [uploadMsg, setUploadMsg] = useState<string | null>(null);
   const [securityTestResult, setSecurityTestResult] = useState<any>(null);
   const [testingSecurity, setTestingSecurity] = useState(false);
+  const [proposals, setProposals] = useState<TransferProposal[]>([]);
+  const [isConfirmingProposalId, setIsConfirmingProposalId] = useState<string | null>(null);
+  const [proposalError, setProposalError] = useState<string | null>(null);
   const [agentRuntimeConfig, setAgentRuntimeConfig] = useState<any>(null);
 
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -312,12 +339,240 @@ export default function Home() {
       .catch(() => null);
   };
 
+  const loadProposals = (tok = sessionToken) => {
+    fetch("/api/proposals", { headers: getAuthHeaders(tok) })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.proposals) setProposals(d.proposals || []);
+      })
+      .catch(() => null);
+  };
+
   const loadAgentConfig = () => {
     fetch("/api/agent/config")
       .then((r) => r.json())
       .then(setAgentRuntimeConfig)
       .catch(() => null);
   };
+
+  const pollProposalReceipt = (proposalId: string) => {
+    let attempts = 0;
+    const interval = setInterval(async () => {
+      attempts++;
+      try {
+        const res = await fetch(`/api/proposals/${proposalId}/check-receipt`, {
+          method: "POST",
+          headers: getAuthHeaders(),
+        });
+        const data = await res.json();
+        if (data.confirmed || data.proposal?.status === "CONFIRMED" || data.proposal?.status === "FAILED" || attempts > 20) {
+          clearInterval(interval);
+          loadProposals();
+          loadWallet();
+        }
+      } catch {
+        if (attempts > 20) clearInterval(interval);
+      }
+    }, 3000);
+  };
+
+  const handleCancelProposal = async (proposalId: string) => {
+    try {
+      const res = await fetch(`/api/proposals/${proposalId}/cancel`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ reason: "User cancelled proposal in preview UI" }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        loadProposals();
+      }
+    } catch (err) {
+      console.error("Cancel proposal error:", err);
+    }
+  };
+
+  const handleConfirmProposalViaBrowserWallet = async (proposal: TransferProposal) => {
+    if (isConfirmingProposalId) return; // Prevent double submit
+    setIsConfirmingProposalId(proposal.id);
+    setProposalError(null);
+
+    try {
+      const eth = typeof window !== "undefined" ? (window as any).ethereum : null;
+      if (!eth) {
+        throw new Error("Ví Web3 (MetaMask, Coinbase Wallet, Rabby, v.v.) là bắt buộc để ký và gửi giao dịch.");
+      }
+
+      // Check current network
+      const currentChainHex = await eth.request({ method: "eth_chainId" });
+      const currentChainId = parseInt(currentChainHex, 16);
+      if (currentChainId !== 84532) {
+        try {
+          await eth.request({
+            method: "wallet_switchEthereumChain",
+            params: [{ chainId: "0x14a34" }],
+          });
+        } catch (switchErr: any) {
+          if (switchErr.code === 4902) {
+            await eth.request({
+              method: "wallet_addEthereumChain",
+              params: [
+                {
+                  chainId: "0x14a34",
+                  chainName: "Base Sepolia Testnet",
+                  nativeCurrency: { name: "Sepolia ETH", symbol: "ETH", decimals: 18 },
+                  rpcUrls: ["https://sepolia.base.org"],
+                  blockExplorerUrls: ["https://sepolia.basescan.org"],
+                },
+              ],
+            });
+          } else {
+            throw new Error("Vui lòng chuyển mạng ví sang Base Sepolia Testnet (Chain ID 84532) để tiếp tục.");
+          }
+        }
+      }
+
+      // Get connected active account
+      const accounts: string[] = await eth.request({ method: "eth_requestAccounts" });
+      if (!accounts || accounts.length === 0) {
+        throw new Error("Không tìm thấy tài khoản ví nào đang kết nối.");
+      }
+      const activeAccount = accounts[0];
+
+      // Check balance
+      const rawBal = await eth.request({ method: "eth_getBalance", params: [activeAccount, "latest"] });
+      const currentBalWei = BigInt(rawBal);
+      const sendWei = BigInt(proposal.amountWeiString);
+      if (currentBalWei < sendWei) {
+        throw new Error(`Số dư ví không đủ để chuyển ${proposal.amountEth} test ETH. Vui lòng nhận thêm test ETH từ vòi Faucet.`);
+      }
+
+      // Send on-chain native transfer
+      const txHash = await eth.request({
+        method: "eth_sendTransaction",
+        params: [
+          {
+            from: activeAccount,
+            to: proposal.to,
+            value: proposal.amountWeiHex,
+            chainId: "0x14a34",
+          },
+        ],
+      });
+
+      if (!txHash) {
+        throw new Error("Giao dịch bị từ chối hoặc không thể phát sóng lên mạng Base Sepolia.");
+      }
+
+      // Submit txHash to backend proposal store immediately
+      await fetch(`/api/proposals/${proposal.id}/submit-tx`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ txHash, from: activeAccount }),
+      });
+
+      loadProposals();
+      pollProposalReceipt(proposal.id);
+    } catch (err: any) {
+      console.error("Confirmation error:", err);
+      setProposalError(err?.message || String(err));
+    } finally {
+      setIsConfirmingProposalId(null);
+    }
+  };
+
+  async function connectUserWallet() {
+    setConnectingUser(true);
+    try {
+      const eth = typeof window !== "undefined" ? (window as any).ethereum : null;
+      if (!eth) {
+        alert("Vui lòng cài đặt ví Web3 (MetaMask, Coinbase Wallet) trong trình duyệt!");
+        setConnectingUser(false);
+        return;
+      }
+
+      const accounts: string[] = await eth.request({ method: "eth_requestAccounts" });
+      if (accounts && accounts.length > 0) {
+        const acc = accounts[0];
+        setUserAccount(acc);
+
+        // 1. Authenticate with EIP-191 personal signature (kept strictly separate from tx signing)
+        const challengeMessage = `Sign in to AgentMaxx with challenge: ${Date.now()} at timestamp: ${Date.now()}`;
+        let signature = "";
+        try {
+          signature = await eth.request({
+            method: "personal_sign",
+            params: [challengeMessage, acc],
+          });
+        } catch (sigErr) {
+          console.warn("User declined signature authentication:", sigErr);
+        }
+
+        if (signature) {
+          const authRes = await fetch("/api/auth/session", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ address: acc, message: challengeMessage, signature }),
+          });
+          const authData = await authRes.json();
+          if (authData.token) {
+            setSessionToken(authData.token);
+            setSessionUser(authData.userId);
+            loadProjects(authData.token);
+            loadMemories(authData.token);
+            loadProposals(authData.token);
+          }
+        }
+
+        // 2. Switch network to Base Sepolia
+        try {
+          await eth.request({
+            method: "wallet_switchEthereumChain",
+            params: [{ chainId: "0x14a34" }],
+          });
+        } catch (switchErr: any) {
+          if (switchErr.code === 4902) {
+            await eth.request({
+              method: "wallet_addEthereumChain",
+              params: [
+                {
+                  chainId: "0x14a34",
+                  chainName: "Base Sepolia Testnet",
+                  nativeCurrency: { name: "Sepolia ETH", symbol: "ETH", decimals: 18 },
+                  rpcUrls: ["https://sepolia.base.org"],
+                  blockExplorerUrls: ["https://sepolia.basescan.org"],
+                },
+              ],
+            });
+          }
+        }
+
+        // 3. Check balance
+        try {
+          const rawBal = await eth.request({ method: "eth_getBalance", params: [acc, "latest"] });
+          const ethVal = (parseInt(rawBal, 16) / 1e18).toFixed(4);
+          setUserBalance(ethVal);
+        } catch {}
+      }
+    } catch (err) {
+      console.error("Browser wallet connect failed:", err);
+    }
+    setConnectingUser(false);
+  }
+
+  async function disconnectWallet() {
+    setUserAccount(null);
+    setUserBalance(null);
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("agentmaxx_session_token");
+    }
+    const guestTok = await initSession();
+    if (guestTok) {
+      loadProjects(guestTok);
+      loadMemories(guestTok);
+      loadProposals(guestTok);
+    }
+  }
 
   useEffect(() => {
     initSession().then((tok) => {
@@ -326,9 +581,20 @@ export default function Home() {
       loadWallet();
       loadTraining();
       loadMemories(tok || undefined);
+      loadProposals(tok || undefined);
       if (tok) loadProjects(tok);
     });
   }, []);
+
+  // Periodic polling for pending proposals to recover status after reload
+  useEffect(() => {
+    const pendingProps = proposals.filter((p) => p.status === "PENDING_RECEIPT" && p.txHash);
+    if (pendingProps.length > 0) {
+      for (const p of pendingProps) {
+        pollProposalReceipt(p.id);
+      }
+    }
+  }, [proposals.length]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -429,108 +695,6 @@ export default function Home() {
     setCurrentProjectStatus(newStatus);
     if (messages.length > 0) {
       await autoSaveProject(messages, currentProjectId, newStatus);
-    }
-  }
-
-  /** Connect User's Browser Web3 Wallet with Cryptographic Signature Proof */
-  async function connectBrowserWallet() {
-    const eth = (window as any)?.ethereum;
-    if (!eth) {
-      alert("No Web3 browser wallet (MetaMask, Rabby, Coinbase Wallet) detected. Please install an extension.");
-      return;
-    }
-    setConnectingUser(true);
-    try {
-      const accounts = await eth.request({ method: "eth_requestAccounts" });
-      if (accounts && accounts[0]) {
-        const acc = accounts[0];
-        setUserAccount(acc);
-
-        // 1. Get challenge template from server
-        const sessionRes = await fetch("/api/auth/session");
-        const sessionData = await sessionRes.json();
-        const challengeMessage =
-          sessionData.challengeTemplate ||
-          `Sign in to AgentMaxx with challenge: ${Date.now()} at timestamp: ${Date.now()}`;
-
-        // 2. Request EIP-191 personal signature from user wallet
-        let signature = "";
-        try {
-          signature = await eth.request({
-            method: "personal_sign",
-            params: [challengeMessage, acc],
-          });
-        } catch (sigErr: any) {
-          console.warn("User declined signature, falling back to guest session:", sigErr);
-        }
-
-        // 3. Verify signature on backend
-        if (signature) {
-          const authRes = await fetch("/api/auth/session", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              address: acc,
-              message: challengeMessage,
-              signature,
-            }),
-          });
-          const authData = await authRes.json();
-          if (authData.token) {
-            setSessionToken(authData.token);
-            setSessionUser(authData.userId);
-            loadProjects(authData.token);
-            loadMemories(authData.token);
-          }
-        }
-
-        try {
-          await eth.request({
-            method: "wallet_switchEthereumChain",
-            params: [{ chainId: "0x14a34" }],
-          });
-        } catch (switchErr: any) {
-          if (switchErr.code === 4902) {
-            await eth.request({
-              method: "wallet_addEthereumChain",
-              params: [
-                {
-                  chainId: "0x14a34",
-                  chainName: "Base Sepolia Testnet",
-                  nativeCurrency: { name: "Sepolia ETH", symbol: "ETH", decimals: 18 },
-                  rpcUrls: ["https://sepolia.base.org"],
-                  blockExplorerUrls: ["https://sepolia.basescan.org"],
-                },
-              ],
-            });
-          }
-        }
-
-        try {
-          const rawBal = await eth.request({
-            method: "eth_getBalance",
-            params: [acc, "latest"],
-          });
-          const ethVal = (parseInt(rawBal, 16) / 1e18).toFixed(4);
-          setUserBalance(ethVal);
-        } catch {}
-      }
-    } catch (err: any) {
-      console.error("Wallet connection failed:", err);
-    }
-    setConnectingUser(false);
-  }
-
-  async function disconnectWallet() {
-    setUserAccount(null);
-    setUserBalance(null);
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("agentmaxx_session_token");
-    }
-    const guestTok = await initSession();
-    if (guestTok) {
-      loadProjects(guestTok);
-      loadMemories(guestTok);
     }
   }
 
@@ -893,7 +1057,7 @@ export default function Home() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={connectBrowserWallet}
+                onClick={connectUserWallet}
                 disabled={connectingUser}
                 className="font-mono text-xs border-primary/40 hover:bg-primary/10 gap-1.5"
               >
@@ -1311,31 +1475,233 @@ export default function Home() {
             </Card>
           )}
 
-          {/* TAB 4: Setup & Agent Wallet */}
+          {/* TAB 4: Setup, Browser Wallet & Transfer Proposals Hub */}
           {activeTab === "setup" && (
             <Card>
-              <CardHeader>
-                <SectionTitle num="04" title="Gemini & Agent Autonomous Wallet" />
+              <CardHeader className="flex flex-row items-center justify-between">
+                <SectionTitle num="04" title="Ví & Quản Lý Giao Dịch Base Sepolia" />
+                <Button variant="ghost" size="icon-xs" onClick={() => { loadWallet(); loadProposals(); }} aria-label="Refresh wallet">
+                  <RefreshCw className="size-3.5" />
+                </Button>
               </CardHeader>
-              <CardContent className="flex flex-col gap-4">
-                <SetupStep number={1} title="Gemini AI Engine" done={ready}>
-                  {status && !ready && (
-                    <p className="text-muted-foreground text-xs">
-                      Paste key into <Code>.env</Code> as <Code>GEMINI_API_KEY</Code>, then restart dev server.
-                    </p>
-                  )}
-                  {ready && <p className="font-mono text-xs text-emerald-500">✓ Connected & Active (gemini-3.5-flash-lite)</p>}
-                </SetupStep>
+              <CardContent className="flex flex-col gap-4 font-mono text-xs max-h-[620px] overflow-y-auto pr-1">
+                {/* 1. Browser Wallet Connection Card */}
+                <div className="border p-3 bg-muted/20 flex flex-col gap-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-[11px] uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                      <WalletCards className="size-3.5 text-primary" /> Ví Trình Duyệt (User Browser Wallet)
+                    </span>
+                    <Badge variant={userAccount ? "secondary" : "outline"} className={cn("text-[10px]", userAccount ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" : "text-muted-foreground")}>
+                      {userAccount ? "Đã kết nối" : "Chưa kết nối"}
+                    </Badge>
+                  </div>
 
-                <SetupStep number={2} title="Agent Autonomous Web3 Wallet" done={Boolean(wallet?.address)} last>
-                  {wallet?.address ? (
-                    <WalletDetails wallet={wallet} onRefresh={loadWallet} />
+                  {userAccount ? (
+                    <div className="flex flex-col gap-1.5 bg-background p-2.5 border">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-muted-foreground">Địa chỉ ví:</span>
+                        <div className="flex items-center gap-1 font-bold text-foreground">
+                          <code className="text-[11px] truncate max-w-[180px]">{userAccount}</code>
+                          <Button
+                            variant="ghost"
+                            size="icon-xs"
+                            onClick={() => navigator.clipboard.writeText(userAccount)}
+                            title="Copy address"
+                          >
+                            <Copy className="size-3" />
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-muted-foreground">Mạng hiện tại:</span>
+                        <Badge variant="outline" className="text-[10px] text-primary border-primary/30">
+                          Base Sepolia (84532)
+                        </Badge>
+                      </div>
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-muted-foreground">Số dư Test ETH:</span>
+                        <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                          {userBalance !== null ? `${userBalance} ETH` : "Đang tải..."}
+                        </span>
+                      </div>
+
+                      {userBalance && parseFloat(userBalance) <= 0.0005 && (
+                        <div className="p-2 border border-amber-500/30 bg-amber-500/10 text-[10px] text-amber-600 dark:text-amber-400 flex items-center gap-1.5 mt-1">
+                          <CircleAlert className="size-3 shrink-0" />
+                          <span>Số dư sắp hết. Vui lòng nhận thêm test ETH miễn phí từ tab Faucet.</span>
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between gap-2 pt-2 border-t mt-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const eth = typeof window !== "undefined" ? (window as any).ethereum : null;
+                            if (eth) {
+                              eth.request({
+                                method: "wallet_switchEthereumChain",
+                                params: [{ chainId: "0x14a34" }],
+                              }).catch(() => null);
+                            }
+                          }}
+                          className="h-7 text-[11px] font-mono"
+                        >
+                          <Zap className="mr-1 size-3 text-amber-500" /> Chuyển sang Base Sepolia
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={disconnectWallet}
+                          className="h-7 text-[11px] font-mono"
+                        >
+                          Ngắt kết nối
+                        </Button>
+                      </div>
+                    </div>
                   ) : (
-                    <div className="flex items-center gap-2 p-3 border font-mono text-xs text-muted-foreground animate-pulse">
-                      <Wallet className="size-4 text-primary" /> Initializing Agent Base Sepolia Wallet...
+                    <div className="flex flex-col gap-2 p-2.5 bg-background border text-center">
+                      <p className="text-[11px] text-muted-foreground">
+                        Kết nối ví trình duyệt (MetaMask, Coinbase Wallet) để xác nhận và gửi giao dịch test ETH trên Base Sepolia.
+                      </p>
+                      <Button
+                        onClick={() => connectUserWallet()}
+                        disabled={connectingUser}
+                        size="sm"
+                        className="h-8 font-mono text-xs uppercase"
+                      >
+                        <Wallet className="mr-1.5 size-3.5" />
+                        {connectingUser ? "Đang mở ví..." : "Kết nối Ví Trình Duyệt"}
+                      </Button>
                     </div>
                   )}
-                </SetupStep>
+                </div>
+
+                {/* 2. Error Banner if any */}
+                {proposalError && (
+                  <div className="p-2.5 border border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400 text-[11px] flex items-start gap-2">
+                    <CircleAlert className="size-3.5 shrink-0 mt-0.5" />
+                    <div className="flex flex-col gap-0.5">
+                      <span className="font-bold">Lỗi Xác Nhận Giao Dịch:</span>
+                      <span className="text-[10px] break-all">{proposalError}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* 3. Transfer Proposals Section */}
+                <div className="flex flex-col gap-2.5">
+                  <div className="flex items-center justify-between">
+                    <p className="font-bold text-[11px] uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      <Fuel className="size-3.5 text-primary" /> Yêu Cầu Chuyển Tiền (Proposals) ({proposals.length})
+                    </p>
+                    <Button variant="ghost" size="icon-xs" onClick={() => loadProposals()} aria-label="Refresh proposals">
+                      <RefreshCw className="size-3" />
+                    </Button>
+                  </div>
+
+                  {proposals.length === 0 ? (
+                    <p className="text-muted-foreground text-[11px] italic p-2.5 border bg-background">
+                      Chưa có proposal chuyển tiền nào được tạo. Hãy yêu cầu Agent: "Chuyển 0.001 ETH tới ví 0x..."
+                    </p>
+                  ) : (
+                    proposals.map((p) => {
+                      const isPending = p.status === "PENDING_APPROVAL";
+                      const isPendingReceipt = p.status === "PENDING_RECEIPT";
+                      const isConfirmed = p.status === "CONFIRMED";
+                      const isFailed = p.status === "FAILED";
+                      const isRejected = p.status === "REJECTED";
+                      const isExpired = p.status === "EXPIRED";
+
+                      return (
+                        <div
+                          key={p.id}
+                          className={cn(
+                            "border p-3 flex flex-col gap-2.5 bg-background transition-all",
+                            isPending && "border-amber-500/50 bg-amber-500/5 shadow-sm",
+                            isPendingReceipt && "border-blue-500/50 bg-blue-500/5",
+                            isConfirmed && "border-emerald-500/40 bg-emerald-500/5"
+                          )}
+                        >
+                          <div className="flex items-center justify-between text-[10px] font-mono">
+                            <span className="font-bold text-foreground">ID: {p.id}</span>
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "text-[9px] uppercase font-mono px-2 py-0.5",
+                                isPending && "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30",
+                                isPendingReceipt && "bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30 animate-pulse",
+                                isConfirmed && "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30",
+                                isFailed && "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30",
+                                isRejected && "bg-slate-500/15 text-slate-600 dark:text-slate-400 border-slate-500/30",
+                                isExpired && "bg-zinc-500/15 text-zinc-600 dark:text-zinc-400 border-zinc-500/30"
+                              )}
+                            >
+                              {p.status}
+                            </Badge>
+                          </div>
+
+                          {/* Proposal Details Grid */}
+                          <div className="grid grid-cols-2 gap-2 text-[11px] bg-muted/20 p-2 border">
+                            <div>
+                              <span className="text-muted-foreground text-[10px] block">Người nhận (To):</span>
+                              <code className="text-foreground text-[10px] truncate block" title={p.to}>{p.to}</code>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground text-[10px] block">Số tiền (Amount):</span>
+                              <span className="font-bold text-primary">{p.amountEth} ETH</span>
+                              <span className="text-muted-foreground text-[9px] block">({p.amountWeiString} Wei)</span>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground text-[10px] block">Mạng blockchain:</span>
+                              <span className="text-foreground">{p.network} ({p.chainId})</span>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground text-[10px] block">Phí gas ước tính:</span>
+                              <span className="text-foreground">~{p.estimatedGasEth} ETH</span>
+                            </div>
+                          </div>
+
+                          {/* Tx Hash Link if available */}
+                          {p.txHash && (
+                            <div className="flex items-center justify-between text-[10px] bg-muted/40 p-1.5 border">
+                              <span className="text-muted-foreground truncate">Tx: {p.txHash.slice(0, 16)}...</span>
+                              <a
+                                href={`https://sepolia.basescan.org/tx/${p.txHash}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-primary font-bold hover:underline inline-flex items-center gap-0.5"
+                              >
+                                Xem trên BaseScan <ExternalLink className="size-2.5" />
+                              </a>
+                            </div>
+                          )}
+
+                          {/* Interactive Action Buttons for Pending Approval */}
+                          {isPending && (
+                            <div className="flex items-center justify-end gap-2 pt-1 border-t">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleCancelProposal(p.id)}
+                                className="h-7 text-xs font-mono"
+                              >
+                                Hủy bỏ
+                              </Button>
+                              <Button
+                                size="sm"
+                                disabled={isConfirmingProposalId === p.id}
+                                onClick={() => handleConfirmProposalViaBrowserWallet(p)}
+                                className="h-7 text-xs font-mono uppercase bg-emerald-600 hover:bg-emerald-700 text-white"
+                              >
+                                {isConfirmingProposalId === p.id ? "Đang gửi..." : "Xác nhận & Ký Giao Dịch"}
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
               </CardContent>
             </Card>
           )}
@@ -1569,6 +1935,100 @@ export default function Home() {
               </div>
             </div>
           )}
+
+          {/* WEEK 3: Human-In-The-Loop Transfer Proposal Preview Banner */}
+          {proposals.filter((p) => p.status === "PENDING_APPROVAL" || p.status === "PENDING_RECEIPT").map((p) => {
+            const isPendingApproval = p.status === "PENDING_APPROVAL";
+            const isPendingReceipt = p.status === "PENDING_RECEIPT";
+
+            return (
+              <div
+                key={p.id}
+                className={cn(
+                  "p-3.5 border-b font-mono text-xs flex flex-col gap-2.5 transition-all",
+                  isPendingApproval && "bg-amber-500/10 border-amber-500/40",
+                  isPendingReceipt && "bg-blue-500/10 border-blue-500/40"
+                )}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-foreground uppercase flex items-center gap-1.5 text-[11px]">
+                    <Fuel className="size-4 text-primary" />
+                    {isPendingApproval ? "⚠️ Xác nhận Giao Dịch Chuyển ETH (Human-In-The-Loop)" : "⏳ Đang Chờ Xác Nhận Trên Blockchain Base Sepolia"}
+                  </span>
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "text-[9px] uppercase font-mono px-2 py-0.5",
+                      isPendingApproval && "bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/40",
+                      isPendingReceipt && "bg-blue-500/20 text-blue-600 dark:text-blue-400 border-blue-500/40 animate-pulse"
+                    )}
+                  >
+                    {p.status}
+                  </Badge>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] bg-background/80 p-2.5 border">
+                  <div>
+                    <span className="text-muted-foreground text-[10px] block">Người gửi (From):</span>
+                    <code className="text-foreground text-[10px] truncate block font-bold">{userAccount || p.from}</code>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground text-[10px] block">Người nhận (To):</span>
+                    <code className="text-foreground text-[10px] truncate block font-bold" title={p.to}>{p.to}</code>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground text-[10px] block">Số tiền chuyển:</span>
+                    <span className="font-bold text-primary text-xs">{p.amountEth} ETH</span>
+                    <span className="text-muted-foreground text-[9px] block">({p.amountWeiString} Wei)</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground text-[10px] block">Mạng & Phí ước tính:</span>
+                    <span className="text-foreground">{p.network} (Gas: ~{p.estimatedGasEth} ETH)</span>
+                  </div>
+                </div>
+
+                {p.txHash && (
+                  <div className="flex items-center justify-between text-[11px] bg-background p-2 border">
+                    <span className="text-muted-foreground truncate">Tx Hash: {p.txHash}</span>
+                    <a
+                      href={`https://sepolia.basescan.org/tx/${p.txHash}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-primary font-bold hover:underline inline-flex items-center gap-1 shrink-0 ml-2"
+                    >
+                      BaseScan <ExternalLink className="size-3" />
+                    </a>
+                  </div>
+                )}
+
+                {isPendingApproval && (
+                  <div className="flex items-center justify-between gap-2 pt-1">
+                    <span className="text-[10px] text-muted-foreground">
+                      Hết hạn lúc: {new Date(p.expiresAt).toLocaleTimeString("vi-VN")}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleCancelProposal(p.id)}
+                        className="h-7 text-xs font-mono"
+                      >
+                        Hủy bỏ
+                      </Button>
+                      <Button
+                        size="sm"
+                        disabled={isConfirmingProposalId === p.id}
+                        onClick={() => handleConfirmProposalViaBrowserWallet(p)}
+                        className="h-7 text-xs font-mono uppercase bg-emerald-600 hover:bg-emerald-700 text-white"
+                      >
+                        {isConfirmingProposalId === p.id ? "Đang mở ví..." : "Xác nhận & Ký Giao Dịch"}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
 
           <ScrollArea className="flex-1 p-4">
             <div className="flex flex-col gap-4">
