@@ -23,16 +23,16 @@ import { cn } from "@/lib/utils";
 
 type Step = { tool: string; args: unknown; result: any; error?: boolean };
 type Message = { role: "user" | "agent"; text: string; steps?: Step[]; error?: boolean };
-type Status = { hasApiKey: boolean; model: string; tools: { name: string; description: string }[] };
+type Status = { hasApiKey: boolean; model: string; tools: { name: string; description: string; category?: string }[] };
 type WalletInfo = { address: string | null; balance?: string };
 
 const EXAMPLES = [
-  "What is the current BTC and ETH price?",
+  "What is the real-time weather in Hanoi and Tokyo?",
+  "Compare current BTC, ETH and SOL prices in USD",
+  "Search knowledge about Smart Contracts on Wikipedia",
   "Check Base Sepolia network gas and latest block",
-  "What's in your wallet?",
-  "Calculate 5000 * (1 + 0.08)^4",
+  "Calculate compound interest: 5000 * (1 + 0.08)^5",
   "Roll 3 20-sided dice",
-  "What's the weather in Tokyo?",
 ];
 
 export default function Home() {
@@ -95,17 +95,22 @@ export default function Home() {
             <img src="/risein-logo.svg" alt="Rise In" className="mr-3 h-5 w-auto" />
             <span className="text-foreground">/ Agentmaxxing</span>&nbsp;starter kit
           </Label>
-          {status && <Label>Model: {status.model}</Label>}
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="font-mono text-xs uppercase">
+              {status?.tools.length ?? 0} Tools active
+            </Badge>
+            {status && <Label>Model: {status.model}</Label>}
+          </div>
         </div>
         <h1 className="text-5xl leading-[0.9] font-bold tracking-[-0.045em] uppercase md:text-7xl">
-          Agentic <span className="text-primary">starter.</span>
+          AgentMaxx <span className="text-primary">Studio.</span>
         </h1>
         <p className="max-w-xl text-lg text-muted-foreground">
-          An AI agent that uses your tools and pays for APIs with its own wallet.
+          Autonomous Web3 AI Agent with real-time data, Open-Meteo live weather, Base Sepolia blockchain RPC, and x402 micropayments.
         </p>
       </header>
 
-      <div className="grid flex-1 gap-6 lg:grid-cols-[380px_1fr]">
+      <div className="grid flex-1 gap-6 lg:grid-cols-[400px_1fr]">
         {/* Left: setup + tools */}
         <aside className="flex flex-col gap-6">
           <Card>
@@ -113,7 +118,7 @@ export default function Home() {
               <SectionTitle num="01" title="Setup" />
             </CardHeader>
             <CardContent className="flex flex-col">
-              <SetupStep number={1} title="Add your Gemini API key" done={ready}>
+              <SetupStep number={1} title="Gemini AI Connection" done={ready}>
                 {status && !ready && (
                   <p className="text-muted-foreground">
                     Paste it into <Code>.env</Code> as <Code>GEMINI_API_KEY</Code>, then restart <Code>npm run dev</Code>.{" "}
@@ -122,10 +127,10 @@ export default function Home() {
                     </a>
                   </p>
                 )}
-                {ready && <p className="text-muted-foreground">Connected.</p>}
+                {ready && <p className="text-muted-foreground font-mono text-xs text-green-500">✓ Connected & Active</p>}
               </SetupStep>
 
-              <SetupStep number={2} title="Create the agent wallet" done={Boolean(wallet?.address)}>
+              <SetupStep number={2} title="Agent On-Chain Wallet" done={Boolean(wallet?.address)}>
                 {wallet && !wallet.address && (
                   <div className="flex flex-col gap-3">
                     <p className="text-muted-foreground">The agent signs payments with this wallet to use paid APIs.</p>
@@ -137,27 +142,43 @@ export default function Home() {
                 {wallet?.address && <WalletDetails wallet={wallet} onRefresh={loadWallet} />}
               </SetupStep>
 
-              <SetupStep number={3} title="Chat with your agent" done={messages.some((m) => m.role === "agent" && !m.error)} last>
-                <p className="text-muted-foreground">Pick an example prompt, or ask anything.</p>
+              <SetupStep number={3} title="Interactive Chat" done={messages.some((m) => m.role === "agent" && !m.error)} last>
+                <p className="text-muted-foreground">Ask anything or click a sample prompt below.</p>
               </SetupStep>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <SectionTitle num="02" title="Tools" />
+              <SectionTitle num="02" title={`Tools (${status?.tools.length ?? 0})`} />
             </CardHeader>
-            <CardContent className="flex flex-col gap-4">
+            <CardContent className="flex flex-col gap-3.5 max-h-[460px] overflow-y-auto pr-1">
               {status?.tools.map((t) => (
-                <div key={t.name}>
-                  <p className="font-mono text-sm">
-                    <span className="text-primary">&gt;</span> {t.name}
-                  </p>
-                  <p className="mt-1 text-muted-foreground">{t.description}</p>
+                <div key={t.name} className="border-b pb-3 last:border-0 last:pb-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-mono text-xs font-semibold">
+                      <span className="text-primary">&gt;</span> {t.name}
+                    </p>
+                    {t.category && (
+                      <Badge
+                        variant="secondary"
+                        className={cn(
+                          "font-mono text-[10px] uppercase px-1.5 py-0",
+                          t.category === "paid" && "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30",
+                          t.category === "crypto" && "bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30",
+                          t.category === "web" && "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30",
+                          t.category === "utility" && "bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/30"
+                        )}
+                      >
+                        {t.category}
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground leading-relaxed">{t.description}</p>
                 </div>
               ))}
-              <p className="border-t pt-4 text-muted-foreground">
-                Add your own in <Code>agent/tools.ts</Code>. Save, and it shows up here.
+              <p className="border-t pt-3 text-xs text-muted-foreground">
+                Configured in <Code>agent/tools.ts</Code>.
               </p>
             </CardContent>
           </Card>

@@ -13,6 +13,7 @@ import { getWalletAddress, getWalletBalance, payAndFetch } from "./wallet";
 export type Tool = {
   name: string;
   description: string;
+  category?: "paid" | "crypto" | "web" | "utility";
   /** JSON Schema describing the inputs. */
   parameters: object;
   /** The code that runs when the agent calls this tool. */
@@ -20,14 +21,19 @@ export type Tool = {
 };
 
 export const tools: Tool[] = [
-  // ─── 1. A paid API: the agent's wallet signs a payment to unlock it ───
+  // ─── 1. Paid Live Weather API (x402 Micropayment + Open-Meteo) ───
   {
     name: "get_weather",
-    description: "Get the current weather for a city. Costs 0.01 USDC, paid automatically from the agent's wallet.",
+    category: "paid",
+    description:
+      "Get real-time live weather and geocoding data for any global city via Open-Meteo API. Costs 0.01 USDC, autonomously signed and paid by the agent's wallet.",
     parameters: {
       type: "object",
       properties: {
-        city: { type: "string", description: "City name, e.g. Tokyo, New York, London" },
+        city: {
+          type: "string",
+          description: "City name to check weather for (e.g. 'Hanoi', 'Tokyo', 'New York', 'Paris', 'London')",
+        },
       },
       required: ["city"],
     },
@@ -36,20 +42,22 @@ export const tools: Tool[] = [
     },
   },
 
-  // ─── 2. Real-time Crypto Price Tool (CoinGecko API) ───
+  // ─── 2. Real-time Crypto Market Data (CoinGecko) ───
   {
     name: "get_crypto_price",
-    description: "Fetch live real-time price, 24h change, and market cap for cryptocurrencies like BTC, ETH, SOL, BASE, etc.",
+    category: "crypto",
+    description:
+      "Fetch live real-time price, 24-hour price change percentage, and market capitalization for cryptocurrencies (BTC, ETH, SOL, BASE, BNB, DOGE, etc.).",
     parameters: {
       type: "object",
       properties: {
         symbol: {
           type: "string",
-          description: "Crypto symbol or ID, e.g. btc, eth, sol, bitcoin, ethereum, solana",
+          description: "Cryptocurrency symbol or identifier (e.g. 'btc', 'eth', 'sol', 'base', 'bitcoin', 'ethereum')",
         },
         currency: {
           type: "string",
-          description: "Target fiat currency, default is usd (e.g. usd, eur, vnd)",
+          description: "Target currency for valuation, defaults to 'usd' (e.g. 'usd', 'eur', 'vnd', 'jpy')",
         },
       },
       required: ["symbol"],
@@ -66,6 +74,10 @@ export const tools: Tool[] = [
         doge: "dogecoin",
         usdc: "usd-coin",
         usdt: "tether",
+        avax: "avalanche-2",
+        matic: "matic-network",
+        pol: "polygon-ecosystem-token",
+        link: "chainlink",
       };
       const coinId = idMap[sym] || sym;
 
@@ -93,10 +105,48 @@ export const tools: Tool[] = [
     },
   },
 
-  // ─── 3. Blockchain Network Info (Base Sepolia RPC) ───
+  // ─── 3. Knowledge & Information Lookup (Wikipedia REST API) ───
+  {
+    name: "search_knowledge",
+    category: "web",
+    description:
+      "Look up verified summaries and definitions on Wikipedia for topics, technology concepts, people, places, or history.",
+    parameters: {
+      type: "object",
+      properties: {
+        topic: {
+          type: "string",
+          description: "Topic or entity to search (e.g. 'Ethereum', 'Smart contract', 'Quantum computing', 'Alan Turing')",
+        },
+      },
+      required: ["topic"],
+    },
+    run: async ({ topic }) => {
+      try {
+        const url = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(topic.trim())}`;
+        const res = await fetch(url, { headers: { "User-Agent": "AgentMaxx-App/1.0" } });
+        if (!res.ok) {
+          return { error: `No Wikipedia article summary found for '${topic}'. Try a different keyword.` };
+        }
+        const data = await res.json();
+        return {
+          title: data.title,
+          description: data.description || "N/A",
+          extract: data.extract,
+          url: data.content_urls?.desktop?.page,
+        };
+      } catch (err) {
+        return { error: `Knowledge lookup failed: ${err instanceof Error ? err.message : String(err)}` };
+      }
+    },
+  },
+
+  // ─── 4. Blockchain Network Health & Gas Inspector (Base Sepolia RPC) ───
   {
     name: "get_network_info",
-    description: "Get real-time blockchain stats for Base Sepolia testnet (latest block number, chain ID, gas price).",
+    category: "crypto",
+    description:
+      "Inspect real-time blockchain health for Base Sepolia testnet including latest block height, chain ID, and current gas price.",
     parameters: { type: "object", properties: {} },
     run: async () => {
       try {
@@ -141,40 +191,42 @@ export const tools: Tool[] = [
     },
   },
 
-  // ─── 4. Mathematical & Financial Calculator ───
+  // ─── 5. Mathematical & Financial Computation Engine ───
   {
     name: "calculate",
-    description: "Perform accurate mathematical expressions and financial calculations (e.g. '0.05 * 2500', '100 * (1 + 0.08)^5', 'sqrt(144)').",
+    category: "utility",
+    description:
+      "Perform precise arithmetic, compounding, and mathematical formula calculations (e.g. '0.05 * 2500', '1000 * (1 + 0.07)^10').",
     parameters: {
       type: "object",
       properties: {
         expression: {
           type: "string",
-          description: "Mathematical expression to evaluate, e.g. '1500 * 0.025' or '(350 + 120) * 1.1'",
+          description: "Mathematical expression to evaluate (e.g. '1500 * 0.025' or '(350 + 120) * 1.1')",
         },
       },
       required: ["expression"],
     },
     run: async ({ expression }) => {
       try {
-        // Safe arithmetic evaluator
         const sanitized = String(expression).replace(/[^0-9+\-*/().%^eE ]/g, "");
         if (!sanitized) throw new Error("Invalid expression");
-        // replace power syntax ^ with **
         const evalExpr = sanitized.replace(/\^/g, "**");
         const fn = new Function(`"use strict"; return (${evalExpr})`);
         const result = fn();
         return { expression, result: Number(result) };
-      } catch (err) {
+      } catch {
         return { error: `Calculation failed for '${expression}'` };
       }
     },
   },
 
-  // ─── 5. Wallet tool: read the agent's own wallet ───
+  // ─── 6. Agent Crypto Wallet Inspector ───
   {
     name: "get_my_wallet",
-    description: "Get the agent's own wallet address and its ETH balance on Base Sepolia (testnet).",
+    category: "crypto",
+    description:
+      "Read the agent's on-chain wallet address and current ETH balance on Base Sepolia testnet.",
     parameters: { type: "object", properties: {} },
     run: async () => ({
       address: getWalletAddress(),
@@ -183,10 +235,11 @@ export const tools: Tool[] = [
     }),
   },
 
-  // ─── 6. Dice Roller & Random Generator ───
+  // ─── 7. Randomization & Dice Generator ───
   {
     name: "roll_dice",
-    description: "Roll one or multiple dice with any number of sides (e.g. 6-sided, 20-sided).",
+    category: "utility",
+    description: "Roll one or multiple dice with any specified number of sides (e.g. 6-sided, 20-sided, 100-sided).",
     parameters: {
       type: "object",
       properties: {
@@ -205,4 +258,5 @@ export const tools: Tool[] = [
     },
   },
 ];
+
 

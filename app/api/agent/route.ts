@@ -6,7 +6,7 @@ export async function GET() {
   return Response.json({
     hasApiKey: Boolean(process.env.GEMINI_API_KEY),
     model: MODEL,
-    tools: tools.map((t) => ({ name: t.name, description: t.description })),
+    tools: tools.map((t) => ({ name: t.name, description: t.description, category: t.category })),
   });
 }
 
