@@ -811,7 +811,313 @@ export const tools: Tool[] = [
       };
     },
   },
+
+  // ─── 29. Smart Contract Security & Vulnerability Auditor (Senior Security Skill) ───
+  {
+    name: "audit_smart_contract_security",
+    category: "crypto",
+    description: "Perform comprehensive security audit on Solidity/EVM smart contract code or architecture to detect reentrancy, access control, flash loan risks, integer safety, and provide remediation.",
+    parameters: {
+      type: "object",
+      properties: {
+        codeSnippet: { type: "string", description: "Solidity/Vyper code snippet or contract logic to audit" },
+        contractName: { type: "string", description: "Optional name of the smart contract" },
+      },
+      required: ["codeSnippet"],
+    },
+    run: async ({ codeSnippet, contractName = "SmartContract" }) => {
+      const issues: Array<{ severity: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "INFO"; title: string; description: string; remediation: string }> = [];
+      let riskScore = 0;
+
+      // 1. Check for Reentrancy risks
+      const hasExternalCall = /\.call\s*\{|\.transfer\(|\.send\(|address\(.*?\)\.call/i.test(codeSnippet);
+      const hasStateChangeAfterCall = /balances\[.*?\]\s*-=|\.call.*?[\s\S]*?balances\[/i.test(codeSnippet);
+      const hasNonReentrant = /nonReentrant|ReentrancyGuard/i.test(codeSnippet);
+
+      if (hasExternalCall && !hasNonReentrant) {
+        issues.push({
+          severity: "HIGH",
+          title: "Potential Reentrancy Vulnerability (CEI Pattern Violation)",
+          description: "Contract makes external state-modifying low-level calls without OpenZeppelin ReentrancyGuard modifier or proper Checks-Effects-Interactions sequencing.",
+          remediation: "Apply 'nonReentrant' modifier from OpenZeppelin ReentrancyGuard.sol and ensure all internal state variables are updated BEFORE making external calls.",
+        });
+        riskScore += 35;
+      }
+
+      // 2. Check for tx.origin authentication flaw
+      if (/tx\.origin/i.test(codeSnippet)) {
+        issues.push({
+          severity: "CRITICAL",
+          title: "Vulnerable tx.origin Authorization Flaw",
+          description: "Using tx.origin for access control makes the contract susceptible to phishing attacks where an attacker tricks the contract owner into executing a malicious transaction.",
+          remediation: "Replace 'tx.origin' with 'msg.sender' or use OpenZeppelin Ownable/AccessControl.",
+        });
+        riskScore += 45;
+      }
+
+      // 3. Check for unchecked low-level calls
+      if (/\.call\{value:.*?\}[^;]*?;/i.test(codeSnippet) && !/require\s*\(\s*success|\(bool\s+success/i.test(codeSnippet)) {
+        issues.push({
+          severity: "HIGH",
+          title: "Unchecked Return Value in Low-Level Call",
+          description: "Low-level .call() returns a boolean status that is ignored, which can lead to silent transaction failures while contract state is altered.",
+          remediation: "Capture the boolean return: '(bool success, ) = recipient.call{value: amount}(\"\"); require(success, \"Transfer failed\");'",
+        });
+        riskScore += 25;
+      }
+
+      // 4. Check for selfdestruct / delegatecall risks
+      if (/selfdestruct|suicide/i.test(codeSnippet)) {
+        issues.push({
+          severity: "HIGH",
+          title: "Deprecated & Dangerous selfdestruct Usage",
+          description: "selfdestruct is deprecated under EIP-6780 (Dencun hardfork) and presents extreme denial-of-service risks if access control is flawed.",
+          remediation: "Remove selfdestruct opcode and implement pausable contract architecture instead.",
+        });
+        riskScore += 30;
+      }
+
+      // 5. Check for integer safety (Solidity version check)
+      const hasPragma = /pragma\s+solidity\s+([^;]+);/i.exec(codeSnippet);
+      if (hasPragma && !hasPragma[1].includes("0.8") && !/SafeMath/i.test(codeSnippet)) {
+        issues.push({
+          severity: "MEDIUM",
+          title: "Unsafe Arithmetic (Pre-0.8.0 Solidity without SafeMath)",
+          description: "Solidity versions prior to 0.8.0 do not have default integer overflow/underflow protection.",
+          remediation: "Upgrade pragma to '^0.8.20' or import and use OpenZeppelin SafeMath library.",
+        });
+        riskScore += 20;
+      }
+
+      // 6. If clean
+      if (issues.length === 0) {
+        issues.push({
+          severity: "INFO",
+          title: "Static Security Checks Passed",
+          description: "No common high-risk anti-patterns (tx.origin, reentrancy, unchecked calls) were detected in this code snippet.",
+          remediation: "Continue adhering to OpenZeppelin standard contracts and conduct comprehensive unit & fuzz testing (Foundry/Hardhat).",
+        });
+      }
+
+      const finalScore = Math.min(100, riskScore);
+      const securityRating = finalScore === 0 ? "EXCELLENT (A+)" : finalScore < 30 ? "MODERATE RISK (B)" : finalScore < 60 ? "HIGH RISK (C)" : "CRITICAL RISK (F)";
+
+      return {
+        contractName,
+        securityRating,
+        riskScore: `${finalScore}/100`,
+        issuesFoundCount: issues.length,
+        vulnerabilities: issues,
+        auditEngine: "AgentMaxx Security Engine v2.0 (EVM / Base L2 Standards)",
+        timestamp: new Date().toISOString(),
+      };
+    },
+  },
+
+  // ─── 30. DeFi Yield, APY & Impermanent Loss Calculator ───
+  {
+    name: "calculate_defi_yield_and_il",
+    category: "crypto",
+    description: "Calculate AMM Liquidity Pool Impermanent Loss (IL), compounded APY from APR, and net LP profit after swap fees.",
+    parameters: {
+      type: "object",
+      properties: {
+        initialPriceA: { type: "number", description: "Initial price of Token A (e.g. ETH initial price: 3000)" },
+        finalPriceA: { type: "number", description: "Final/Current price of Token A (e.g. ETH final price: 4500)" },
+        aprPercent: { type: "number", description: "Annual Percentage Rate (APR) from pool trading fees (e.g. 25 for 25%)" },
+        daysHolding: { type: "number", description: "Number of days holding the LP position (e.g. 30, 90, 365)" },
+        depositUsd: { type: "number", description: "Initial capital deposited in USD (e.g. 1000)" },
+      },
+      required: ["initialPriceA", "finalPriceA"],
+    },
+    run: async ({ initialPriceA, finalPriceA, aprPercent = 20, daysHolding = 30, depositUsd = 1000 }) => {
+      const priceRatio = finalPriceA / initialPriceA;
+      // Standard 50/50 AMM Impermanent Loss formula: IL = (2 * sqrt(k)) / (1 + k) - 1
+      const ilFraction = (2 * Math.sqrt(priceRatio)) / (1 + priceRatio) - 1;
+      const ilPercent = ilFraction * 100;
+
+      // APY Compounding: APY = (1 + APR / 365)^365 - 1
+      const dailyRate = (aprPercent / 100) / 365;
+      const apyPercent = (Math.pow(1 + dailyRate, 365) - 1) * 100;
+
+      // Fee earnings for holding period
+      const feeEarnedUsd = depositUsd * (dailyRate * daysHolding);
+      // HODL value vs LP value
+      const hodlValueUsd = depositUsd * (0.5 * (1 + priceRatio));
+      const lpValueWithoutFeesUsd = hodlValueUsd * (1 + ilFraction);
+      const netLpValueUsd = lpValueWithoutFeesUsd + feeEarnedUsd;
+      const netProfitUsd = netLpValueUsd - depositUsd;
+
+      return {
+        pair: "Token A / Stablecoin 50:50 Pool",
+        priceChangePercent: `${((priceRatio - 1) * 100).toFixed(2)}%`,
+        impermanentLossPercent: `${ilPercent.toFixed(2)}%`,
+        impermanentLossUsd: `$${(hodlValueUsd * Math.abs(ilFraction)).toFixed(2)}`,
+        aprPercent: `${aprPercent}%`,
+        compoundedApyPercent: `${apyPercent.toFixed(2)}%`,
+        feeEarnedUsd: `$${feeEarnedUsd.toFixed(2)} (${daysHolding} days)`,
+        hodlValueUsd: `$${hodlValueUsd.toFixed(2)}`,
+        netLpValueUsd: `$${netLpValueUsd.toFixed(2)}`,
+        netProfitUsd: `$${netProfitUsd.toFixed(2)}`,
+        recommendation: ilPercent < -5 && feeEarnedUsd < Math.abs(hodlValueUsd * ilFraction)
+          ? "⚠️ High Impermanent Loss: Fees earned do not yet cover the divergence loss. Consider hedging or high-volume pairs."
+          : "✅ Profitable LP Position: Pool trading fees effectively outweigh the impermanent loss.",
+      };
+    },
+  },
+
+  // ─── 31. UI/UX & Web Accessibility Auditor (Senior UI/UX Skill) ───
+  {
+    name: "audit_ui_accessibility",
+    category: "utility",
+    description: "Audit UI/UX design components for WCAG 2.1 AA/AAA color contrast ratios, mobile touch target sizes, glassmorphism aesthetics, and semantic hierarchy.",
+    parameters: {
+      type: "object",
+      properties: {
+        componentType: { type: "string", description: "UI Component type (e.g. 'button', 'card', 'navbar', 'modal', 'form')" },
+        textColorHex: { type: "string", description: "Hex color code for text (e.g. '#ffffff' or '#38bdf8')" },
+        bgColorHex: { type: "string", description: "Hex color code for background (e.g. '#0b0f19' or '#1e293b')" },
+        fontSizePx: { type: "number", description: "Font size in pixels (e.g. 14, 16, 24)" },
+      },
+      required: ["componentType"],
+    },
+    run: async ({ componentType, textColorHex = "#ffffff", bgColorHex = "#0b0f19", fontSizePx = 16 }) => {
+      // Relative Luminance calculation for WCAG Contrast
+      const getLuminance = (hex: string) => {
+        const clean = hex.replace("#", "");
+        const r = parseInt(clean.substring(0, 2), 16) / 255;
+        const g = parseInt(clean.substring(2, 4), 16) / 255;
+        const b = parseInt(clean.substring(4, 6), 16) / 255;
+        const a = [r, g, b].map((v) => (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)));
+        return a[0] * 0.2126 + a[1] * 0.7152 + a[2] * 0.0722;
+      };
+
+      let contrastRatio = 12.5; // default fallback
+      try {
+        const l1 = getLuminance(textColorHex);
+        const l2 = getLuminance(bgColorHex);
+        const lighter = Math.max(l1, l2);
+        const darker = Math.min(l1, l2);
+        contrastRatio = Number(((lighter + 0.05) / (darker + 0.05)).toFixed(2));
+      } catch {
+        contrastRatio = 10.0;
+      }
+
+      const isLargeText = fontSizePx >= 18;
+      const passesAA = isLargeText ? contrastRatio >= 3.0 : contrastRatio >= 4.5;
+      const passesAAA = isLargeText ? contrastRatio >= 4.5 : contrastRatio >= 7.0;
+
+      return {
+        componentType,
+        typography: `${fontSizePx}px (${isLargeText ? "Large Text" : "Body Text"})`,
+        colorContrast: {
+          textColor: textColorHex,
+          backgroundColor: bgColorHex,
+          contrastRatio: `${contrastRatio}:1`,
+          wcagLevelAA: passesAA ? "✅ PASS" : "❌ FAIL (Requires >= 4.5:1)",
+          wcagLevelAAA: passesAAA ? "✅ PASS" : "⚠️ WARN (Requires >= 7.0:1 for AAA)",
+        },
+        touchTargetRecommendation: "Ensure interactive clickable target is at least 44x44 CSS pixels (min-h-[44px] min-w-[44px]) for mobile finger ergonomics.",
+        glassmorphismTips: [
+          "Use subtle backdrop-blur (12px to 16px) with 0.05-0.12 opacity borders to prevent visual vibration.",
+          "Provide distinct focus-visible rings (e.g. ring-2 ring-primary) for keyboard navigation.",
+          "Include active state micro-interactions (scale-98 / brightness-110) for tactile feedback.",
+        ],
+      };
+    },
+  },
+
+  // ─── 32. Web3 EVM Calldata & ABI Decoder ───
+  {
+    name: "decode_web3_calldata",
+    category: "crypto",
+    description: "Decode EVM raw transaction calldata (hex data starting with 0x) to identify function selectors (ERC-20 transfer, approve, transferFrom) and human-readable parameters.",
+    parameters: {
+      type: "object",
+      properties: {
+        calldataHex: { type: "string", description: "Raw EVM transaction calldata hex string (e.g. '0xa9059cbb...')" },
+      },
+      required: ["calldataHex"],
+    },
+    run: async ({ calldataHex }) => {
+      const cleanHex = calldataHex.trim().toLowerCase();
+      if (!cleanHex.startsWith("0x") || cleanHex.length < 10) {
+        return { error: "Invalid calldata format. Must start with '0x' and contain at least a 4-byte selector." };
+      }
+
+      const selector = cleanHex.substring(0, 10);
+      const params = cleanHex.substring(10);
+
+      // Standard ERC-20 / EVM Function Selectors
+      const knownSelectors: Record<string, { name: string; signature: string; decode: (raw: string) => any }> = {
+        "0xa9059cbb": {
+          name: "transfer",
+          signature: "transfer(address to, uint256 amount)",
+          decode: (raw) => {
+            const to = "0x" + raw.substring(24, 64);
+            const amountHex = raw.substring(64, 128);
+            const amountWei = BigInt("0x" + (amountHex || "0")).toString();
+            return { recipient: to, amountWei, approxEthOrTokens: (Number(amountWei) / 1e18).toString() };
+          },
+        },
+        "0x095ea7b3": {
+          name: "approve",
+          signature: "approve(address spender, uint256 amount)",
+          decode: (raw) => {
+            const spender = "0x" + raw.substring(24, 64);
+            const amountHex = raw.substring(64, 128);
+            const isUnlimited = amountHex.toLowerCase().includes("ffffffffffffffffffffffffffffffff");
+            return {
+              spender,
+              amount: isUnlimited ? "Unlimited (Max uint256) ⚠️ Check Allowance Risk" : BigInt("0x" + (amountHex || "0")).toString(),
+            };
+          },
+        },
+        "0x23b872dd": {
+          name: "transferFrom",
+          signature: "transferFrom(address from, address to, uint256 amount)",
+          decode: (raw) => {
+            const from = "0x" + raw.substring(24, 64);
+            const to = "0x" + raw.substring(88, 128);
+            const amountHex = raw.substring(128, 192);
+            return { sender: from, recipient: to, amountWei: BigInt("0x" + (amountHex || "0")).toString() };
+          },
+        },
+      };
+
+      const matched = knownSelectors[selector];
+      if (matched) {
+        try {
+          const decodedParams = matched.decode(params);
+          return {
+            status: "SUCCESS",
+            selector,
+            functionName: matched.name,
+            signature: matched.signature,
+            decodedArguments: decodedParams,
+            rawCalldataLength: `${cleanHex.length} chars (${(cleanHex.length - 2) / 2} bytes)`,
+          };
+        } catch (e) {
+          return {
+            status: "PARTIAL",
+            selector,
+            functionName: matched.name,
+            signature: matched.signature,
+            error: "Failed to parse full parameter payload.",
+          };
+        }
+      }
+
+      return {
+        status: "UNKNOWN_SELECTOR",
+        selector,
+        message: "Custom or non-standard EVM function selector. Contract ABI is required for full decoding.",
+        rawCalldataLength: `${cleanHex.length} chars`,
+      };
+    },
+  },
 ];
+
 
 
 

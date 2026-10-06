@@ -52,8 +52,23 @@ export function routeRequest(userMessage: string): RouteDecision {
     };
   }
 
-  // 3. Web3, Crypto & Wallet
+  // 3. Web3, Security & DeFi Operations
   if (
+    msg.includes("audit") ||
+    msg.includes("security") ||
+    msg.includes("reentrancy") ||
+    msg.includes("vulnerability") ||
+    msg.includes("lỗ hổng") ||
+    msg.includes("kiểm toán") ||
+    msg.includes("calldata") ||
+    msg.includes("selector") ||
+    msg.includes("decode") ||
+    msg.includes("impermanent loss") ||
+    msg.includes("il") ||
+    msg.includes("apy") ||
+    msg.includes("apr") ||
+    msg.includes("yield") ||
+    msg.includes("farming") ||
     msg.includes("crypto") ||
     msg.includes("btc") ||
     msg.includes("eth") ||
@@ -82,6 +97,9 @@ export function routeRequest(userMessage: string): RouteDecision {
     return {
       domain: "web3",
       recommendedTools: [
+        "audit_smart_contract_security",
+        "calculate_defi_yield_and_il",
+        "decode_web3_calldata",
         "get_wallet_info",
         "prepare_transfer",
         "confirm_transfer",
@@ -96,12 +114,31 @@ export function routeRequest(userMessage: string): RouteDecision {
         "get_weather",
       ],
       systemInstructionAddendum:
-        "MODE: Web3 & On-Chain Autonomous Specialist (Base Sepolia L2). When user wants to transfer, ALWAYS call `prepare_transfer` first for safety proposal verification. For token swaps, use `simulate_token_swap`. For gas and network health, use `estimate_gas_and_fees`. For domains (Basename / ENS), use `resolve_web3_name`.",
+        "MODE: Web3 Security & On-Chain Specialist (Base Sepolia L2). For smart contract audits, call `audit_smart_contract_security`. For liquidity pool / IL analysis, call `calculate_defi_yield_and_il`. For raw EVM hex data, call `decode_web3_calldata`. When user wants to transfer, ALWAYS call `prepare_transfer` first for safety proposal verification.",
     };
   }
 
+  // 4. UI/UX & Design Accessibility
+  if (
+    msg.includes("ui") ||
+    msg.includes("ux") ||
+    msg.includes("contrast") ||
+    msg.includes("wcag") ||
+    msg.includes("accessibility") ||
+    msg.includes("giao diện") ||
+    msg.includes("thiết kế") ||
+    msg.includes("màu sắc") ||
+    msg.includes("glassmorphism")
+  ) {
+    return {
+      domain: "general",
+      recommendedTools: ["audit_ui_accessibility", "generate_creative_brief", "remember_user_fact"],
+      systemInstructionAddendum:
+        "MODE: Senior UI/UX & Accessibility Architect (WCAG 2.1 AA/AAA Standards). Evaluate component aesthetics, contrast ratios, touch targets, and glassmorphism hierarchy.",
+    };
+  }
 
-  // 4. Research & URL Scraper
+  // 5. Research & URL Scraper
   if (
     msg.includes("http") ||
     msg.includes("scrape") ||
@@ -121,7 +158,7 @@ export function routeRequest(userMessage: string): RouteDecision {
     };
   }
 
-  // 5. General & Utility
+  // 6. General & Utility
   return {
     domain: "general",
     recommendedTools: ["roll_dice", "remember_user_fact", "get_user_memories", "calculate"],

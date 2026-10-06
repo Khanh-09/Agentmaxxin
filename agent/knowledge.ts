@@ -69,6 +69,33 @@ const SEED_KNOWLEDGE: KnowledgeItem[] = [
     createdAt: new Date().toISOString(),
   },
   {
+    id: "kb_smart_contract_security",
+    domain: "web3",
+    title: "EVM Smart Contract Security & CEI Pattern",
+    content:
+      "To prevent reentrancy attacks, follow the Checks-Effects-Interactions (CEI) pattern: validate conditions first, update state variables next, and perform external calls/transfers last. Always use OpenZeppelin's ReentrancyGuard, avoid 'tx.origin' for access control, and capture boolean return values on low-level .call().",
+    tags: ["solidity", "security", "reentrancy", "smart-contracts", "audit", "openzeppelin"],
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: "kb_defi_il",
+    domain: "finance",
+    title: "DeFi Impermanent Loss & Compounded APY",
+    content:
+      "Impermanent Loss (IL) occurs when the price ratio of deposited pool assets diverges from when they were deposited. Formula: IL = (2 * sqrt(k)) / (1 + k) - 1, where k = P_final / P_initial. A 1.5x price increase results in -2.02% IL; a 2x increase results in -5.72% IL. Compounded APY = (1 + APR/365)^365 - 1.",
+    tags: ["defi", "impermanent-loss", "yield", "apy", "apr", "liquidity-pool"],
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: "kb_ui_accessibility",
+    domain: "general",
+    title: "WCAG 2.1 Accessibility & Glassmorphism Design",
+    content:
+      "Web Content Accessibility Guidelines (WCAG) 2.1 requires minimum 4.5:1 contrast for normal text and 3:1 for large text (Level AA), or 7:1 for Level AAA. Interactive mobile targets must be at least 44x44 CSS pixels. Glassmorphism cards require subtle backdrop blur (12-16px) with distinct borders (0.08-0.12 opacity) for optimal scannability.",
+    tags: ["ui", "ux", "accessibility", "wcag", "contrast", "glassmorphism", "design"],
+    createdAt: new Date().toISOString(),
+  },
+  {
     id: "kb_agent_react",
     domain: "general",
     title: "ReAct (Reasoning + Acting) Agent Pattern",

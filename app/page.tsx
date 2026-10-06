@@ -86,9 +86,13 @@ type TrainingData = {
 
 const EXAMPLES = [
   { label: "Web3 Faucet & Balance", prompt: "Check my wallet info and show Base Sepolia faucet links" },
-  { label: "DeFi Swap & Gas", prompt: "Simulate swapping 0.5 ETH to USDC and analyze Base Sepolia gas fees" },
   { label: "Transfer Proposal", prompt: "Prepare transfer of 0.0001 ETH to 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045" },
+  { label: "🛡️ Smart Contract Audit", prompt: "Audit this Solidity code for reentrancy and security risks: function withdraw(uint amount) public { require(balances[msg.sender] >= amount); (bool success, ) = msg.sender.call{value: amount}(''); balances[msg.sender] -= amount; }" },
+  { label: "📊 DeFi Impermanent Loss", prompt: "Calculate DeFi Impermanent Loss and compounded APY for ETH starting at $3000 going to $4500 with 25% pool fee APR for 90 days holding $2000 deposit" },
+  { label: "🔍 Decode EVM Calldata", prompt: "Decode this raw EVM calldata hex: 0xa9059cbb000000000000000000000000d8da6bf26964af9d7eed9e03e53415d37aa960450000000000000000000000000000000000000000000000000de0b6b3a7640000" },
+  { label: "DeFi Swap & Gas", prompt: "Simulate swapping 0.5 ETH to USDC and analyze Base Sepolia gas fees" },
   { label: "Quant Finance & TA", prompt: "Calculate RSI and SMA for [2500, 2550, 2600, 2580, 2620, 2700, 2750, 2800] and search knowledge base for RSI rules" },
+  { label: "🎨 UI/UX Contrast Audit", prompt: "Audit UI/UX accessibility contrast for component 'navbar' with text '#38bdf8' and background '#0b0f19' at 16px font size" },
   { label: "Coding & Sandbox", prompt: "Execute a JavaScript algorithm to filter primes from [1, 2, 3, 4, 5, 11, 13, 17, 20]" },
   { label: "Deep Search & Scrape", prompt: "Search the web for latest AI Agent trends with sources and scrape https://docs.base.org" },
   { label: "Multi-Domain Learning", prompt: "Teach the agent a new knowledge fact: Base Sepolia Chain ID is 84532 and uses OP Stack" },

@@ -20,7 +20,7 @@
    - [Workflow 1: Dual-Wallet Interaction (User Wallet vs. Agent Autonomous Wallet)](#workflow-1-dual-wallet-interaction-user-wallet-vs-agent-autonomous-wallet)
    - [Workflow 2: LangGraph Cognitive StateGraph & Self-Training Pipeline](#workflow-2-langgraph-cognitive-stategraph--self-training-pipeline)
 2. [Why Dual-Wallet Architecture?](#-why-dual-wallet-architecture)
-3. [Comprehensive Use Case Showcase (7 Major Scenarios)](#-comprehensive-use-case-showcase)
+3. [Comprehensive Use Case Showcase (8 Major Scenarios)](#-comprehensive-use-case-showcase)
    - [Use Case 1: Human-in-the-Loop Safe Web3 Transfers on Base Sepolia](#use-case-1-human-in-the-loop-safe-web3-transfers-on-base-sepolia)
    - [Use Case 2: Quantitative Finance & Indicator Signals (RSI, SMA, EMA)](#use-case-2-quantitative-finance--indicator-signals-rsi-sma-ema)
    - [Use Case 3: Autonomous x402 Micropayments Protocol](#use-case-3-autonomous-x402-micropayments-protocol)
@@ -28,7 +28,8 @@
    - [Use Case 5: Code Sandbox Execution & Verification](#use-case-5-code-sandbox-execution--verification)
    - [Use Case 6: Dynamic Knowledge Base RAG & Active Self-Learning](#use-case-6-dynamic-knowledge-base-rag--active-self-learning)
    - [Use Case 7: Polyglot Multi-Lingual Translation & Unit Conversion](#use-case-7-polyglot-multi-lingual-translation--unit-conversion)
-4. [Complete 28 Tools Registry](#-complete-28-tools-registry)
+   - [Use Case 8: Smart Contract Security Audit & EVM Calldata Decoding](#use-case-8-smart-contract-security-audit--evm-calldata-decoding)
+4. [Complete 32 Tools Registry](#-complete-32-tools-registry)
 5. [Installation & Quick Start](#-installation--quick-start)
 6. [Security & Human-in-the-Loop Safety](#-security--human-in-the-loop-safety)
 
@@ -218,10 +219,25 @@ flowchart TD
 
 ---
 
-## 🛠️ Complete 28 Tools Registry
+### Use Case 8: Smart Contract Security Audit & EVM Calldata Decoding
+- **Goal**: Detect reentrancy, access control flaws, and decode raw transaction bytes before execution on Base Sepolia.
+- **User Prompt**:
+  > *"Audit this Solidity code for reentrancy and security risks: function withdraw(uint amount) public { require(balances[msg.sender] >= amount); (bool success, ) = msg.sender.call{value: amount}(''); balances[msg.sender] -= amount; } and decode calldata 0xa9059cbb000000000000000000000000d8da6bf26964af9d7eed9e03e53415d37aa960450000000000000000000000000000000000000000000000000de0b6b3a7640000"*
+- **Agent Execution Trace**:
+  1. `audit_smart_contract_security(codeSnippet="...")` $\rightarrow$ Flags `HIGH` Reentrancy (CEI pattern violation) & suggests OpenZeppelin `ReentrancyGuard` + Checks-Effects-Interactions order.
+  2. `decode_web3_calldata(calldataHex="0xa9059cbb...")` $\rightarrow$ Decodes ERC-20 `transfer(to: 0xd8dA...96045, amount: 1.0 ETH / Token)`.
+  3. Formulates security rating, vulnerability breakdown, and remediation code diff.
+
+---
+
+## 🛠️ Complete 32 Tools Registry
 
 | Domain | Tool Name | Input Parameters | Key Capabilities |
 | :--- | :--- | :--- | :--- |
+| **Security** | `audit_smart_contract_security` | `codeSnippet`, `contractName?` | Static vulnerability scanner for Reentrancy, tx.origin, unchecked low-level calls, and integer safety. |
+| **DeFi Math** | `calculate_defi_yield_and_il` | `initialPriceA`, `finalPriceA`, `aprPercent?`, `daysHolding?`, `depositUsd?` | Calculates AMM Impermanent Loss (IL %), daily compounded APY, and net LP profit vs HODL. |
+| **UI/UX & Design** | `audit_ui_accessibility` | `componentType`, `textColorHex?`, `bgColorHex?`, `fontSizePx?` | WCAG 2.1 AA/AAA contrast ratio verification (4.5:1 / 7:1), 44x44px touch targets, glassmorphism guidelines. |
+| **Web3 EVM** | `decode_web3_calldata` | `calldataHex` | Decodes raw EVM calldata hex into human-readable function names (transfer, approve, transferFrom) and parameters. |
 | **Web3** | `get_wallet_info` | None | Returns Agent Wallet 0x address, ETH balance, Base Sepolia RPC health, and faucet links. |
 | **Web3** | `prepare_transfer` | `recipient`, `amountEth`, `memo` | Validates recipient, balances, calculates gas, and creates a secure proposal card. |
 | **Web3** | `confirm_transfer` | `proposalId` | Signs and broadcasts the pending proposal to Base Sepolia L2 via viem. |
@@ -250,6 +266,7 @@ flowchart TD
 | **Memory** | `get_user_memories` | None | Retrieves all remembered facts and profile context. |
 | **Creative** | `generate_creative_brief` | `topic`, `format?` | Generates creative production briefs, themes, and audio tracklists. |
 | **Math** | `calculate` | `expression` | Mathematical expression evaluator. |
+| **Utility** | `roll_dice` | `sides?` | Cryptographic random number generator. |
 
 ---
 
