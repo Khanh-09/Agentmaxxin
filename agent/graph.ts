@@ -15,6 +15,7 @@ import { getRelevantExemplars, recordHighRewardExemplar, reflectAndLearnFromRun 
 import { getAgentRuntimeConfig } from "./config";
 import type { TaskUsageMetrics, CostBreakdown } from "./tasks";
 import { calculateExactCost } from "./pricing";
+import { getCachedToolResult, setCachedToolResult } from "./cache";
 
 export const MODEL = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
 const MAX_STEPS = 5;
@@ -70,7 +71,13 @@ export async function runGraph(
 
   // ─── STAGE 2: EXECUTE NODE (Gemini Function Calling Loop) ───
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-  const contents: Content[] = history.map((m) => ({
+  
+  // Context Window Optimization: Keep first intent + recent turns if history is long
+  const optimizedHistory = history.length > 8
+    ? [history[0], ...history.slice(-7)]
+    : history;
+
+  const contents: Content[] = optimizedHistory.map((m) => ({
     role: m.role === "user" ? "user" : "model",
     parts: [{ text: m.text }],
   }));
@@ -175,38 +182,66 @@ ${route.systemInstructionAddendum}
     }
 
     contents.push(response.candidates![0].content!);
-    const results: Part[] = [];
 
+    // Count search calls
     for (const call of calls) {
-      if (ctx.abortSignal?.aborted) {
-        throw new Error("Task execution cancelled by user.");
-      }
-
       if (call.name === "get_web_search" || call.name === "extract_web_page") {
         searchCallsCount++;
+      }
+    }
+
+    // ── PARALLEL CONCURRENT TOOL EXECUTION WITH IN-MEMORY TTL CACHE ──
+    const toolRunPromises = calls.map(async (call) => {
+      if (ctx.abortSignal?.aborted) {
+        throw new Error("Task execution cancelled by user.");
       }
 
       const tool = tools.find((t) => t.name === call.name);
       let result: unknown;
       let error = false;
+
+      const toolName = call.name || "";
+
+      // 1. Fast sub-millisecond check from In-Memory TTL Cache
+      const cached = getCachedToolResult(toolName, call.args);
+      if (cached !== null) {
+        return { call, result: cached, error: false, fromCache: true };
+      }
+
+      // 2. Execute tool with per-step timeout
       try {
-        if (!tool) throw new Error(`No tool named ${call.name}`);
+        if (!tool) throw new Error(`No tool named ${toolName}`);
         
-        // Enforce per-step timeout
         const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error(`Tool '${call.name}' timeout (${STEP_TIMEOUT_MS}ms)`)), STEP_TIMEOUT_MS)
+          setTimeout(() => reject(new Error(`Tool '${toolName}' timeout (${STEP_TIMEOUT_MS}ms)`)), STEP_TIMEOUT_MS)
         );
 
         result = await Promise.race([tool.run(call.args ?? {}, ctx), timeoutPromise]);
+
+        // Save successful result to In-Memory TTL Cache
+        setCachedToolResult(toolName, call.args, result);
       } catch (err) {
         result = { error: err instanceof Error ? err.message : String(err) };
         error = true;
       }
-      steps.push({ tool: call.name!, args: call.args, result, error });
+
+      return { call, result, error, fromCache: false };
+    });
+
+    const executedTools = await Promise.all(toolRunPromises);
+
+    const results: Part[] = [];
+    for (const item of executedTools) {
+      steps.push({
+        tool: item.call.name!,
+        args: item.call.args,
+        result: item.result,
+        error: item.error,
+      });
       results.push({
         functionResponse: {
-          name: call.name,
-          response: { result },
+          name: item.call.name,
+          response: { result: item.result },
         },
       });
     }
