@@ -1,7 +1,8 @@
 import fs from "fs";
-import path from "path";
+import { getStoragePath } from "@/lib/storage";
 
-const MEMORY_FILE = path.join(process.cwd(), ".agent-memory.json");
+const MEMORY_FILE = getStoragePath(".agent-memory.json");
+
 
 export type MemoryStore = Record<string, { value: string; updatedAt: string }>;
 

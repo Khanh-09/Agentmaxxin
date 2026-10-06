@@ -8,12 +8,12 @@
  * 4. Benchmarks performance and computes domain intelligence scores.
  */
 import fs from "fs";
-import path from "path";
+import { getStoragePath } from "@/lib/storage";
 import { getExecutionLogs } from "./logger";
 import { getAgentLearnings, saveAgentLearning } from "./knowledge";
 
+const EXEMPLARS_FILE = getStoragePath(".agent-exemplars.json");
 
-const EXEMPLARS_FILE = path.join(process.cwd(), ".agent-exemplars.json");
 
 export type Exemplar = {
   id: string;

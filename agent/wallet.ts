@@ -21,9 +21,11 @@ import {
 } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { baseSepolia } from "viem/chains";
+import { getStoragePath } from "@/lib/storage";
 
-const WALLET_FILE = path.join(process.cwd(), ".agent-wallet.json");
-const TX_HISTORY_FILE = path.join(process.cwd(), ".agent-transactions.json");
+const WALLET_FILE = getStoragePath(".agent-wallet.json");
+const TX_HISTORY_FILE = getStoragePath(".agent-transactions.json");
+
 
 export const publicClient = createPublicClient({ chain: baseSepolia, transport: http() });
 

@@ -1,9 +1,10 @@
 import fs from "fs";
-import path from "path";
+import { getStoragePath } from "@/lib/storage";
 import { Step } from "./agent";
 import { EvaluationResult } from "./evaluate";
 
-const RUNS_LOG_FILE = path.join(process.cwd(), ".agent-runs.jsonl");
+const RUNS_LOG_FILE = getStoragePath(".agent-runs.jsonl");
+
 
 export type ExecutionLog = {
   id: string;

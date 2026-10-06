@@ -5,10 +5,11 @@
  * and user-ingested knowledge articles with keyword and semantic tagging.
  */
 import fs from "fs";
-import path from "path";
+import { getStoragePath } from "@/lib/storage";
 
-const KNOWLEDGE_FILE = path.join(process.cwd(), ".agent-knowledge-base.json");
-const LEARNINGS_FILE = path.join(process.cwd(), ".agent-learnings.json");
+const KNOWLEDGE_FILE = getStoragePath(".agent-knowledge-base.json");
+const LEARNINGS_FILE = getStoragePath(".agent-learnings.json");
+
 
 export type KnowledgeItem = {
   id: string;

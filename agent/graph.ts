@@ -152,14 +152,19 @@ export async function runGraph(
       finalAnswer.slice(0, 150),
       evaluation.score
     );
-  } else if (evaluation.verdict === "FAIL" || evaluation.score < 80) {
+  } else if (evaluation.verdict === "NEEDS_REVISION" || evaluation.score < 80) {
     reflectAndLearnFromRun({
       domain: route.domain,
       userPrompt: lastUserMsg,
       toolsCalled: steps.map((s) => s.tool),
-      evaluation,
+      evaluation: {
+        score: evaluation.score,
+        verdict: evaluation.verdict,
+        feedback: evaluation.feedback,
+      },
     });
   }
+
 
   // ─── STAGE 4: LOG NODE (Persistent Run Record) ───
   const runId = logExecution(lastUserMsg, route.domain, steps, finalAnswer, evaluation);
