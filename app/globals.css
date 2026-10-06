@@ -38,45 +38,78 @@
 }
 
 :root {
-    /* Agentmaxxing palette */
-    --background: #0A0A0A;
-    --foreground: #F2F1EC;
-    --card: #111110;
-    --card-foreground: #F2F1EC;
-    --popover: #111110;
-    --popover-foreground: #F2F1EC;
+    /* High-tech Web3 Cyber Dark Palette */
+    --background: #08080A;
+    --foreground: #F5F5F7;
+    --card: #0F1014;
+    --card-foreground: #F5F5F7;
+    --popover: #0F1014;
+    --popover-foreground: #F5F5F7;
     --primary: #C8E850;
-    --primary-foreground: #0A0A0A;
-    --secondary: #2A2A28;
-    --secondary-foreground: #F2F1EC;
-    --muted: #1A1A19;
-    --muted-foreground: #9A9A93;
-    --accent: #2A2A28;
-    --accent-foreground: #F2F1EC;
-    --destructive: #FF6B5A;
-    --border: rgba(242, 241, 236, 0.13);
-    --input: rgba(242, 241, 236, 0.24);
+    --primary-foreground: #08080A;
+    --secondary: #181920;
+    --secondary-foreground: #E2E2E8;
+    --muted: #13141A;
+    --muted-foreground: #8E909F;
+    --accent: #1C1E26;
+    --accent-foreground: #F5F5F7;
+    --destructive: #FF5555;
+    --border: rgba(255, 255, 255, 0.08);
+    --input: rgba(255, 255, 255, 0.14);
     --ring: #C8E850;
-    --blue: #2030D8;
-    --blue-soft: #8C96FF;
-    --radius: 0rem;
+    --blue: #0052FF;
+    --blue-soft: #7096FF;
+    --radius: 0.125rem;
 }
-
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
-    }
+  }
   body {
-    @apply bg-background text-foreground;
-    }
+    @apply bg-background text-foreground antialiased selection:bg-primary selection:text-primary-foreground;
+  }
   html {
-    @apply font-sans;
-    }
+    @apply font-sans scroll-smooth;
+  }
 }
-/* Faint 6 column grid behind the page, like agentmaxxin.xyz */
+
+/* Background Cyber Grid Pattern */
 body {
-  background-image: linear-gradient(to right, rgba(242, 241, 236, 0.045) 1px, transparent 1px);
-  background-size: calc(100% / 6) 100%;
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+  background-size: 40px 40px;
 }
-::selection { background: var(--primary); color: var(--primary-foreground); }
+
+/* Glassmorphism & Cyber Glow utilities */
+.glass-panel {
+  background: rgba(15, 16, 20, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glow-border {
+  box-shadow: 0 0 15px -3px rgba(200, 232, 80, 0.15);
+}
+
+.glow-blue {
+  box-shadow: 0 0 20px -5px rgba(0, 82, 255, 0.25);
+}
+
+/* Custom Web3 Scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(200, 232, 80, 0.4);
+}
