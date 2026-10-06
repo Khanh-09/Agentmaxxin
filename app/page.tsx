@@ -11,9 +11,12 @@ import {
   Code2,
   Coins,
   Copy,
+  Download,
   Droplet,
   ExternalLink,
+  FileText,
   Fuel,
+  Globe,
   GraduationCap,
   History,
   Layers,
@@ -653,6 +656,9 @@ export default function Home() {
                       {m.steps?.map((s, j) => (
                         <div key={j} className="flex flex-col gap-2">
                           <ToolCall step={s} />
+                          {s.tool === "get_web_search" && s.result?.results && (
+                            <SearchResultsCard data={s.result} />
+                          )}
                           {s.tool === "prepare_transfer" && s.result?.proposalId && (
                             <TransferProposalCard
                               proposal={s.result}
@@ -688,7 +694,10 @@ export default function Home() {
                             </Button>
                           </div>
                         ) : (
-                          m.text
+                          <>
+                            {m.text}
+                            <AgentMessageToolbar text={m.text} domain={m.domain} />
+                          </>
                         )}
                       </div>
                     </div>
@@ -913,3 +922,89 @@ function Json({ label, value }: { label: string; value: unknown }) {
     </div>
   );
 }
+
+function SearchResultsCard({ data }: { data: any }) {
+  if (!data?.results || !Array.isArray(data.results) || data.results.length === 0) return null;
+  return (
+    <div className="border border-emerald-500/30 bg-emerald-500/5 p-3 flex flex-col gap-2 font-mono text-xs">
+      <div className="flex items-center justify-between">
+        <span className="flex items-center gap-1.5 font-bold text-emerald-600 dark:text-emerald-400 uppercase text-[11px]">
+          <Globe className="size-3.5" /> Verified Research Sources ({data.sourceCount || data.results.length})
+        </span>
+        <Badge variant="outline" className="text-[9px] uppercase border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
+          {data.engine || "Live Web Search"}
+        </Badge>
+      </div>
+      <div className="flex flex-col gap-2 pt-1 border-t border-emerald-500/15">
+        {data.results.map((r: any, idx: number) => (
+          <div key={idx} className="bg-background/80 p-2 border border-border flex flex-col gap-1">
+            <div className="flex items-center justify-between gap-2">
+              <a
+                href={r.url}
+                target="_blank"
+                rel="noreferrer"
+                className="font-bold text-primary hover:underline truncate text-xs inline-flex items-center gap-1"
+              >
+                [{idx + 1}] {r.title} <ExternalLink className="size-3" />
+              </a>
+              {r.domain && (
+                <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                  {r.domain}
+                </span>
+              )}
+            </div>
+            {r.snippet && (
+              <p className="text-[11px] text-muted-foreground font-sans line-clamp-2 leading-relaxed">
+                {r.snippet}
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AgentMessageToolbar({ text, domain }: { text: string; domain?: string }) {
+  const [copied, setCopied] = useState(false);
+
+  function copyText() {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
+
+  function exportMarkdown() {
+    const header = `# AgentMaxx Research & Planning Report\n**Domain:** ${domain || "General"}\n**Generated:** ${new Date().toLocaleString()}\n\n---\n\n`;
+    const blob = new Blob([header + text], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `agentmaxx-report-${Date.now()}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  return (
+    <div className="flex items-center justify-end gap-2 pt-2 mt-2 border-t border-border/50 font-mono text-xs">
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-6 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+        onClick={copyText}
+      >
+        {copied ? <Check className="mr-1 size-3 text-emerald-500" /> : <Copy className="mr-1 size-3" />}
+        {copied ? "Đã chép" : "Sao chép"}
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-6 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+        onClick={exportMarkdown}
+      >
+        <Download className="mr-1 size-3" /> Xuất Markdown (.md)
+      </Button>
+    </div>
+  );
+}
+

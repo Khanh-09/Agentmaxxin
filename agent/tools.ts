@@ -258,61 +258,129 @@ export const tools: Tool[] = [
     },
   },
 
-  // ─── 8. Tavily & Web Search Tool (tavily-web skill) ───
+  // ─── 8. Multi-Source Live Web Research & Citation Tool (tavily-web / wikipedia) ───
   {
     name: "get_web_search",
     category: "web",
     description:
-      "Fetch live web search results, news, articles, and documentation URLs for any query from the internet.",
+      "Search the internet for factual information, current documentation, articles, and verifiable sources. Returns structured titles, URLs, snippets, and domains.",
     parameters: {
       type: "object",
       properties: {
         query: {
           type: "string",
-          description: "Search keywords or topic (e.g. 'Base L2 network' or 'Ethereum upgrades')",
+          description: "Search keywords or question (e.g. 'Base Sepolia L2 architecture' or 'Rollup transaction lifecycle')",
+        },
+        maxResults: {
+          type: "number",
+          description: "Maximum number of citation sources to return (default 4)",
         },
       },
       required: ["query"],
     },
-    run: async ({ query }) => {
+    run: async ({ query, maxResults = 4 }: { query: string; maxResults?: number }) => {
+      const cleanQuery = (query || "").trim();
+      if (!cleanQuery) {
+        return { error: "Search query cannot be empty." };
+      }
+
+      // 1. Try Tavily API if key provided
       if (process.env.TAVILY_API_KEY) {
         try {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 6000);
           const res = await fetch("https://api.tavily.com/search", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ api_key: process.env.TAVILY_API_KEY, query, max_results: 4 }),
+            body: JSON.stringify({ api_key: process.env.TAVILY_API_KEY, query: cleanQuery, max_results: maxResults }),
+            signal: controller.signal,
           });
+          clearTimeout(timeout);
           const data = await res.json();
           if (data.results && data.results.length > 0) {
             return {
-              query,
+              query: cleanQuery,
+              engine: "Tavily Deep Web Search",
               sourceCount: data.results.length,
               results: data.results.map((r: any) => ({
-                title: r.title,
+                title: r.title || "Web Source",
                 url: r.url,
-                snippet: r.content,
+                domain: new URL(r.url).hostname.replace("www.", ""),
+                snippet: (r.content || "").slice(0, 500),
               })),
             };
           }
-        } catch {}
+        } catch (e: any) {
+          console.warn("Tavily search fallback:", e.message);
+        }
       }
 
+      // 2. Reliable Multi-Source Fallback (Wikipedia API with Rich Extract & Refinement)
       try {
-        const url = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&utf8=&format=json`;
-        const res = await fetch(url, { headers: { "User-Agent": "AgentMaxx-App/1.0" } });
-        const data = await res.json();
-        const searchList = data.query?.search || [];
-        return {
-          query,
-          sourceCount: searchList.length,
-          results: searchList.slice(0, 3).map((s: any) => ({
-            title: s.title,
-            url: `https://en.wikipedia.org/wiki/${encodeURIComponent(s.title.replace(/ /g, "_"))}`,
-            snippet: s.snippet.replace(/<[^>]+>/g, ""),
-          })),
+        const fetchWiki = async (searchTerm: string) => {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 5000);
+          const searchUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(searchTerm)}&utf8=&format=json`;
+          const res = await fetch(searchUrl, {
+            headers: { "User-Agent": "AgentMaxx-ResearchEngine/2.0 (Academic & Planning Agent)" },
+            signal: controller.signal,
+          });
+          clearTimeout(timeout);
+          const data = await res.json();
+          return data.query?.search || [];
         };
-      } catch (err) {
-        return { error: `Search failed: ${err instanceof Error ? err.message : String(err)}` };
+
+        let searchList = await fetchWiki(cleanQuery);
+
+        // If 0 results, strip common filler words and retry with top keywords
+        if (searchList.length === 0) {
+          const keywords = cleanQuery
+            .replace(/[^\w\s]/gi, " ")
+            .split(/\s+/)
+            .filter((w) => !["and", "the", "or", "in", "on", "of", "about", "for", "to", "with", "ecosystem", "architecture", "overview", "network"].includes(w.toLowerCase()))
+            .slice(0, 3)
+            .join(" ");
+
+          if (keywords && keywords !== cleanQuery) {
+            searchList = await fetchWiki(keywords);
+          }
+        }
+
+        if (searchList.length === 0) {
+          return {
+            query: cleanQuery,
+            engine: "Wikipedia Verified Knowledge",
+            sourceCount: 0,
+            results: [],
+            message: `Không tìm thấy tài liệu phù hợp cho từ khóa '${cleanQuery}'. Vui lòng thử lại với từ khóa cụ thể hơn.`,
+          };
+        }
+
+        const formattedResults = searchList.slice(0, maxResults).map((s: any) => {
+          const pageTitle = s.title;
+          const articleUrl = `https://en.wikipedia.org/wiki/${encodeURIComponent(pageTitle.replace(/ /g, "_"))}`;
+          return {
+            title: pageTitle,
+            url: articleUrl,
+            domain: "en.wikipedia.org",
+            snippet: s.snippet.replace(/<[^>]+>/g, "").replace(/&quot;/g, '"'),
+          };
+        });
+
+        return {
+          query: cleanQuery,
+          engine: "Wikipedia Knowledge Hub",
+          sourceCount: formattedResults.length,
+          results: formattedResults,
+        };
+      } catch (err: any) {
+        return {
+          query: cleanQuery,
+          engine: "Fallback Search",
+          sourceCount: 0,
+          error: `Research network timeout: ${err instanceof Error ? err.message : String(err)}`,
+          results: [],
+        };
       }
     },
   },
