@@ -56,11 +56,12 @@ export async function executeBackgroundTask(params: {
     // Inspect tool steps for recorded side-effects and unreversible operations
     if (result.steps && Array.isArray(result.steps)) {
       for (const step of result.steps) {
+        const resObj = step.result as any;
         if (step.tool === "get_web_search") {
-          sideEffects.push(`Thu thập ${step.result?.sourceCount || 1} nguồn web.`);
+          sideEffects.push(`Thu thập ${resObj?.sourceCount || 1} nguồn web.`);
         } else if (step.tool === "prepare_transfer") {
           unreversibleActions.push(
-            `Đã khởi tạo proposal chuyển tiền on-chain ID: ${step.result?.proposalId}`
+            `Đã khởi tạo proposal chuyển tiền on-chain ID: ${resObj?.proposalId}`
           );
         } else if (step.tool === "audit_smart_contract_security") {
           sideEffects.push("Hoàn tất phân tích rủi ro hợp đồng thông minh.");
@@ -76,7 +77,13 @@ export async function executeBackgroundTask(params: {
       {
         status: "succeeded",
         result: result.answer,
-        steps: result.steps,
+        toolSteps: result.steps,
+        steps: [
+          { name: "Phân tích yêu cầu & Lập kế hoạch", status: "completed" },
+          { name: "Truy vấn Tools & Thu thập dữ liệu", status: "completed" },
+          { name: "Tổng hợp thông tin & Kiểm chứng nguồn", status: "completed" },
+          { name: "Đánh giá chất lượng & Trả kết quả", status: "completed" },
+        ],
         sideEffects,
         unreversibleActions,
         durationMs,

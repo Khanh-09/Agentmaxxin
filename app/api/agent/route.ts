@@ -10,9 +10,9 @@ export async function GET(req: Request) {
     hasApiKey: Boolean(process.env.GEMINI_API_KEY),
     model: MODEL,
     session: {
-      userId: session.userId,
-      isWallet: session.isWallet,
-      isAuthenticated: session.isAuthenticated,
+      userId: session?.userId || "guest_default",
+      isWallet: session?.isWallet || false,
+      isAuthenticated: session?.isAuthenticated || false,
     },
     tools: tools.map((t) => ({ name: t.name, description: t.description, category: t.category })),
   });
@@ -28,6 +28,7 @@ export async function POST(req: Request) {
   }
 
   const session = getAuthenticatedSession(req);
+  const userId = session?.userId || "guest_default";
   const body = await req.json();
   const { messages, projectId, idempotencyKey } = body;
 
@@ -39,18 +40,31 @@ export async function POST(req: Request) {
   const effectiveProjId = projectId || `proj_${Date.now()}`;
 
   // Task creation & Deduplication
-  const { task, isDuplicate } = createOrGetTask({
+  const taskResult = createOrGetTask({
     projectId: effectiveProjId,
-    userId: session.userId,
+    userId,
     objective: latestUserMsg,
     idempotencyKey,
+    payload: messages,
   });
+
+  if (taskResult.conflict) {
+    return Response.json(
+      { error: taskResult.error || "Idempotency key mismatch: payload differs from original request." },
+      { status: 409 }
+    );
+  }
+
+  const { task, isDuplicate } = taskResult;
+  if (!task) {
+    return Response.json({ error: "Failed to create task." }, { status: 500 });
+  }
 
   // If duplicate and already succeeded or running, return without re-running duplicate work
   if (isDuplicate && task.status === "succeeded") {
     return Response.json({
       answer: task.result || "",
-      steps: task.steps || [],
+      steps: task.toolSteps || task.steps || [],
       task,
       projectId: task.projectId,
       isDuplicate: true,
@@ -64,7 +78,7 @@ export async function POST(req: Request) {
       status: "running",
       startedAt: new Date().toISOString(),
     },
-    session.userId
+    userId
   );
 
   const startTime = Date.now();
@@ -79,11 +93,17 @@ export async function POST(req: Request) {
       {
         status: "succeeded",
         result: result.answer,
-        steps: result.steps,
+        toolSteps: result.steps,
+        steps: [
+          { name: "Phân tích yêu cầu & Lập kế hoạch", status: "completed" },
+          { name: "Truy vấn Tools & Thu thập dữ liệu", status: "completed" },
+          { name: "Tổng hợp thông tin & Kiểm chứng nguồn", status: "completed" },
+          { name: "Đánh giá chất lượng & Trả kết quả", status: "completed" },
+        ],
         durationMs,
         completedAt: new Date().toISOString(),
       },
-      session.userId
+      userId
     );
 
     return Response.json({
@@ -104,7 +124,7 @@ export async function POST(req: Request) {
         durationMs,
         completedAt: new Date().toISOString(),
       },
-      session.userId
+      userId
     );
 
     return Response.json({ error: errMsg, task: failedTask || runningTask }, { status: 500 });

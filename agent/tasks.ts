@@ -25,6 +25,7 @@ export type AgentTask = {
     status: "pending" | "running" | "completed" | "failed";
     detail?: string;
   }>;
+  toolSteps?: Array<{ tool: string; args: any; result: any; error?: boolean }>;
   result?: string;
   error?: string;
   sideEffects?: string[];

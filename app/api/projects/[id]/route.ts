@@ -7,8 +7,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   try {
     const { id } = await params;
     const session = getAuthenticatedSession(req);
+    const userId = session?.userId || "guest_default";
 
-    const { project, status } = getProjectById(id, session.userId);
+    const { project, status } = getProjectById(id, userId);
 
     if (status === "FORBIDDEN") {
       return Response.json(
@@ -20,7 +21,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       return Response.json({ error: "Project not found." }, { status: 404 });
     }
 
-    const tasks = listTasksByProject(id, session.userId);
+    const tasks = listTasksByProject(id, userId);
 
     return Response.json({ project, tasks });
   } catch (err: any) {

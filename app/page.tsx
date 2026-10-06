@@ -116,7 +116,7 @@ type ProjectTask = {
   updatedAt: string;
 };
 
-type TaskStatus = "queued" | "running" | "succeeded" | "failed" | "cancelled";
+type TaskStatus = "queued" | "running" | "succeeded" | "failed" | "cancelled" | "interrupted";
 
 type AgentTask = {
   id: string;
@@ -125,13 +125,18 @@ type AgentTask = {
   objective: string;
   status: TaskStatus;
   idempotencyKey?: string;
+  payloadHash?: string;
   steps?: Array<{ name: string; status: "pending" | "running" | "completed" | "failed"; detail?: string }>;
+  toolSteps?: Step[];
   result?: string;
   error?: string;
+  sideEffects?: string[];
+  unreversibleActions?: string[];
   createdAt: string;
   startedAt?: string;
   completedAt?: string;
   durationMs?: number;
+  recoveredFromCrash?: boolean;
 };
 
 // 5 Core Standard Sample Tasks + Specialist Presets
@@ -519,7 +524,7 @@ export default function Home() {
             if (t.status === "succeeded") {
               const updatedMessages: Message[] = [
                 ...history,
-                { role: "agent", text: t.result || "", steps: t.steps, domain: "research" },
+                { role: "agent", text: t.result || "", steps: t.toolSteps, domain: "research" },
               ];
               setMessages(updatedMessages);
               autoSaveProject(updatedMessages, effectiveProjId, currentProjectStatus, t.id, t.status);
@@ -544,7 +549,7 @@ export default function Home() {
             if (t.status === "cancelled") {
               const sideEffectsText =
                 t.sideEffects && t.sideEffects.length > 0
-                  ? `\n\n**Các thao tác đã thực hiện trước khi hủy:**\n${t.sideEffects.map((s) => `- ${s}`).join("\n")}`
+                  ? `\n\n**Các thao tác đã thực hiện trước khi hủy:**\n${t.sideEffects.map((s: string) => `- ${s}`).join("\n")}`
                   : "";
               const updatedMessages: Message[] = [
                 ...history,
