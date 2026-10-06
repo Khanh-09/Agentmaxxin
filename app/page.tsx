@@ -21,13 +21,18 @@ import {
   History,
   Layers,
   LineChart,
+  Plus,
   RefreshCw,
   RotateCcw,
   Search,
   SendHorizontal,
   ShieldCheck,
   Sparkles,
+  Square,
   Terminal,
+  Trash2,
+  Upload,
+  User,
   Wallet,
   WalletCards,
   Zap,
@@ -83,22 +88,57 @@ type TrainingData = {
     status: string;
   };
   knowledgeCount: number;
-  knowledgeBase: Array<{ id: string; domain: string; title: string; tags: string[] }>;
+  knowledgeBase: Array<{ id: string; domain: string; title: string; tags: string[]; source?: string }>;
   exemplars: Array<{ id: string; domain: string; userPrompt: string; score: number }>;
 };
+type UserMemory = {
+  key: string;
+  value: string;
+  updatedAt: string;
+};
 
-const EXAMPLES = [
+// 5 Core Standard Sample Tasks + Specialist Presets
+const STANDARD_TASKS = [
+  {
+    num: "1",
+    label: "🔎 1. Nghiên cứu & Dẫn nguồn",
+    desc: "Tìm thông tin về Optimism OP Stack và dẫn nguồn mở được.",
+    prompt: "Tìm thông tin về Optimism OP Stack và hệ sinh thái Superchain, tóm tắt cơ chế hoạt động và dẫn nguồn mở được.",
+  },
+  {
+    num: "2",
+    label: "⚖️ 2. So sánh hai phương án",
+    desc: "So sánh Optimistic Rollups vs ZK-Rollups theo chi phí, tốc độ và bảo mật.",
+    prompt: "So sánh hai phương án mở rộng Layer 2: Optimistic Rollups vs ZK-Rollups theo các tiêu chí: Chi phí giao dịch, Tốc độ hoàn tất (Finality) và Mức độ phức tạp bảo mật. Trình bày dạng bảng và dẫn nguồn.",
+  },
+  {
+    num: "3",
+    label: "📑 3. Đọc tài liệu & Kế hoạch",
+    desc: "Đọc tài liệu và lập kế hoạch triển khai AI Agent Web3.",
+    prompt: "Đọc tài liệu tri thức đã nạp và lập kế hoạch 4 bước triển khai tích hợp AI Agent tự hành có ví Base Sepolia và giao thức micropayments x402.",
+  },
+  {
+    num: "4",
+    label: "🧪 4. Kiểm tra điểm chưa chắc chắn",
+    desc: "Kiểm tra rủi ro và các điểm chưa chắc chắn trong hợp đồng thông minh.",
+    prompt: "Kiểm tra những điểm chưa chắc chắn và rủi ro bảo mật trong hợp đồng Solidity sau: function withdraw(uint amount) public { require(balances[msg.sender] >= amount); (bool success, ) = msg.sender.call{value: amount}(''); balances[msg.sender] -= amount; }",
+  },
+  {
+    num: "5",
+    label: "🔄 5. Tiếp tục từ kết quả trước",
+    desc: "Tiếp tục công việc: phân tích phí gas EIP-1559 và tạo proposal chuyển tiền.",
+    prompt: "Tiếp tục công việc từ kết quả trước: phân tích chi tiết phí gas EIP-1559 trên Base Sepolia và tạo proposal chuyển 0.0001 ETH an toàn.",
+  },
+];
+
+const QUICK_EXAMPLES = [
   { label: "Web3 Faucet & Balance", prompt: "Check my wallet info and show Base Sepolia faucet links" },
   { label: "Transfer Proposal", prompt: "Prepare transfer of 0.0001 ETH to 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045" },
-  { label: "🛡️ Smart Contract Audit", prompt: "Audit this Solidity code for reentrancy and security risks: function withdraw(uint amount) public { require(balances[msg.sender] >= amount); (bool success, ) = msg.sender.call{value: amount}(''); balances[msg.sender] -= amount; }" },
   { label: "📊 DeFi Impermanent Loss", prompt: "Calculate DeFi Impermanent Loss and compounded APY for ETH starting at $3000 going to $4500 with 25% pool fee APR for 90 days holding $2000 deposit" },
   { label: "🔍 Decode EVM Calldata", prompt: "Decode this raw EVM calldata hex: 0xa9059cbb000000000000000000000000d8da6bf26964af9d7eed9e03e53415d37aa960450000000000000000000000000000000000000000000000000de0b6b3a7640000" },
-  { label: "DeFi Swap & Gas", prompt: "Simulate swapping 0.5 ETH to USDC and analyze Base Sepolia gas fees" },
   { label: "Quant Finance & TA", prompt: "Calculate RSI and SMA for [2500, 2550, 2600, 2580, 2620, 2700, 2750, 2800] and search knowledge base for RSI rules" },
   { label: "🎨 UI/UX Contrast Audit", prompt: "Audit UI/UX accessibility contrast for component 'navbar' with text '#38bdf8' and background '#0b0f19' at 16px font size" },
   { label: "Coding & Sandbox", prompt: "Execute a JavaScript algorithm to filter primes from [1, 2, 3, 4, 5, 11, 13, 17, 20]" },
-  { label: "Deep Search & Scrape", prompt: "Search the web for latest AI Agent trends with sources and scrape https://docs.base.org" },
-  { label: "Multi-Domain Learning", prompt: "Teach the agent a new knowledge fact: Base Sepolia Chain ID is 84532 and uses OP Stack" },
   { label: "Polyglot Translation", prompt: "Translate 'Autonomous AI agents with on-chain wallets will revolutionize decentralized finance' into Vietnamese and Japanese with formal tone" },
 ];
 
@@ -106,14 +146,22 @@ export default function Home() {
   const [status, setStatus] = useState<Status | null>(null);
   const [wallet, setWallet] = useState<WalletInfo | null>(null);
   const [training, setTraining] = useState<TrainingData | null>(null);
+  const [memories, setMemories] = useState<UserMemory[]>([]);
   const [userAccount, setUserAccount] = useState<string | null>(null);
   const [userBalance, setUserBalance] = useState<string | null>(null);
   const [connectingUser, setConnectingUser] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
-  const [creating, setCreating] = useState(false);
-  const [activeTab, setActiveTab] = useState<"setup" | "faucet" | "tools" | "knowledge" | "history">("setup");
+  const [activeTab, setActiveTab] = useState<"workspace" | "memory" | "setup" | "faucet" | "tools" | "knowledge" | "history">("workspace");
+  const [newMemoryKey, setNewMemoryKey] = useState("");
+  const [newMemoryVal, setNewMemoryVal] = useState("");
+  const [uploadFileText, setUploadFileText] = useState("");
+  const [uploadFileName, setUploadFileName] = useState("my-notes.md");
+  const [uploading, setUploading] = useState(false);
+  const [uploadMsg, setUploadMsg] = useState<string | null>(null);
+
+  const abortControllerRef = useRef<AbortController | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const loadWallet = () =>
@@ -128,22 +176,22 @@ export default function Home() {
       .then(setTraining)
       .catch(() => null);
 
+  const loadMemories = () =>
+    fetch("/api/memory")
+      .then((r) => r.json())
+      .then((d) => setMemories(d.memories || []))
+      .catch(() => null);
+
   useEffect(() => {
     fetch("/api/agent").then((r) => r.json()).then(setStatus);
     loadWallet();
     loadTraining();
+    loadMemories();
   }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, thinking]);
-
-  async function createWallet() {
-    setCreating(true);
-    await fetch("/api/wallet", { method: "POST" });
-    await loadWallet();
-    setCreating(false);
-  }
 
   /** Connect User's Browser Web3 Wallet (MetaMask / Coinbase / Rabby) */
   async function connectBrowserWallet() {
@@ -158,7 +206,6 @@ export default function Home() {
       if (accounts && accounts[0]) {
         const acc = accounts[0];
         setUserAccount(acc);
-        // Request network switch to Base Sepolia (Chain ID 84532 / 0x14a34)
         try {
           await eth.request({
             method: "wallet_switchEthereumChain",
@@ -181,7 +228,6 @@ export default function Home() {
           }
         }
 
-        // Fetch user balance
         try {
           const rawBal = await eth.request({
             method: "eth_getBalance",
@@ -197,31 +243,6 @@ export default function Home() {
     setConnectingUser(false);
   }
 
-
-  /** Transfer test ETH from User's MetaMask to Agent Wallet in 1 click */
-  async function fundAgentFromUserWallet() {
-    if (!userAccount || !wallet?.address) return;
-    const eth = (window as any)?.ethereum;
-    if (!eth) return;
-
-    try {
-      // 0.005 ETH in hex wei = 0x11c37937e08000
-      await eth.request({
-        method: "eth_sendTransaction",
-        params: [
-          {
-            from: userAccount,
-            to: wallet.address,
-            value: "0x11c37937e08000",
-          },
-        ],
-      });
-      setTimeout(() => loadWallet(), 5000);
-    } catch (err: any) {
-      console.error("Fund transfer failed:", err);
-    }
-  }
-
   async function send(text: string) {
     if (!text.trim() || thinking) return;
     const history: Message[] = [...messages, { role: "user", text }];
@@ -229,11 +250,15 @@ export default function Home() {
     setInput("");
     setThinking(true);
 
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     try {
       const res = await fetch("/api/agent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: history.filter((m) => !m.error).map(({ role, text }) => ({ role, text })) }),
+        signal: controller.signal,
       });
       const data = await res.json();
       setMessages((m) => [
@@ -244,11 +269,28 @@ export default function Home() {
       ]);
       loadWallet();
       loadTraining();
-    } catch {
-      setMessages((m) => [
-        ...m,
-        { role: "agent", text: "Could not reach the server. Is `npm run dev` still running?", error: true },
-      ]);
+      loadMemories();
+    } catch (err: any) {
+      if (err.name === "AbortError") {
+        setMessages((m) => [
+          ...m,
+          { role: "agent", text: "⏹️ Tác vụ đã được hủy bởi người dùng.", error: false },
+        ]);
+      } else {
+        setMessages((m) => [
+          ...m,
+          { role: "agent", text: "Could not reach the server. Is `npm run dev` still running?", error: true },
+        ]);
+      }
+    }
+    setThinking(false);
+    abortControllerRef.current = null;
+  }
+
+  function abortCurrentTask() {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
     }
     setThinking(false);
   }
@@ -260,6 +302,55 @@ export default function Home() {
     }
   }
 
+  async function handleAddMemory(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newMemoryKey.trim() || !newMemoryVal.trim()) return;
+    await fetch("/api/memory", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: newMemoryKey, value: newMemoryVal }),
+    });
+    setNewMemoryKey("");
+    setNewMemoryVal("");
+    loadMemories();
+  }
+
+  async function handleDeleteMemory(key: string) {
+    await fetch("/api/memory", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key }),
+    });
+    loadMemories();
+  }
+
+  async function handleUploadDocument(e: React.FormEvent) {
+    e.preventDefault();
+    if (!uploadFileText.trim()) return;
+    setUploading(true);
+    setUploadMsg(null);
+    try {
+      const formData = new FormData();
+      formData.append("filename", uploadFileName);
+      formData.append("text", uploadFileText);
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (data.success) {
+        setUploadMsg(`✅ ${data.message}`);
+        setUploadFileText("");
+        loadTraining();
+      } else {
+        setUploadMsg(`❌ ${data.error}`);
+      }
+    } catch (err: any) {
+      setUploadMsg(`❌ Lỗi upload: ${err.message}`);
+    }
+    setUploading(false);
+  }
+
   const ready = Boolean(status?.hasApiKey);
 
   return (
@@ -269,34 +360,32 @@ export default function Home() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Label>
             <img src="/risein-logo.svg" alt="Rise In" className="mr-3 h-5 w-auto" />
-            <span className="text-foreground">/ Agentmaxxing</span>&nbsp;Multi-Domain Cognitive Engine
+            <span className="text-foreground">/ AgentMaxx</span>&nbsp;Research & Planning Cognitive Engine
           </Label>
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline" className="font-mono text-xs uppercase hidden sm:inline-flex">
-              <Zap className="size-3 mr-1 text-amber-500" /> {status?.tools.length ?? 0} Tools
-            </Badge>
-            <Badge variant="secondary" className="font-mono text-xs uppercase bg-primary/10 text-primary border-primary/20 hidden md:inline-flex">
-              <GraduationCap className="size-3 mr-1" /> {training?.knowledgeCount ?? 5} KB Items
-            </Badge>
-            <Badge variant="outline" className="font-mono text-xs uppercase text-emerald-500 border-emerald-500/30">
               Base Sepolia (84532)
             </Badge>
+            <Badge variant="secondary" className="font-mono text-xs uppercase">
+              {status?.model ?? "gemini-3.5-flash-lite"}
+            </Badge>
 
-            {/* DApp Connect Wallet Button */}
+            {/* Connect MetaMask / Rabby User Wallet */}
             {!userAccount ? (
               <Button
+                variant="outline"
                 size="sm"
                 onClick={connectBrowserWallet}
                 disabled={connectingUser}
-                className="bg-primary hover:bg-primary/90 text-primary-foreground font-mono text-xs uppercase tracking-wider font-bold h-8 px-3 ml-1"
+                className="font-mono text-xs border-primary/40 hover:bg-primary/10 gap-1.5"
               >
-                <Wallet className="size-3.5 mr-1.5" />
+                <WalletCards className="size-3.5 text-primary" />
                 {connectingUser ? "Connecting..." : "Connect Wallet"}
               </Button>
             ) : (
-              <div className="flex items-center gap-2 border bg-card/90 p-1 px-2.5 font-mono text-xs shadow-sm ml-1 rounded-sm">
-                <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-muted-foreground text-[11px] hidden sm:inline">{userBalance ? `${userBalance} ETH` : "Connected"}</span>
+              <div className="flex items-center gap-2 px-2.5 py-1 rounded border border-emerald-500/30 bg-emerald-500/10 font-mono text-xs">
+                <span className="size-2 rounded-full bg-emerald-500" />
+                <span className="font-semibold text-foreground">{userBalance ?? "0.00"} ETH</span>
                 <span className="text-border hidden sm:inline">|</span>
                 <code className="text-primary font-semibold text-[11px]">{userAccount.slice(0, 6)}...{userAccount.slice(-4)}</code>
                 <button
@@ -309,7 +398,6 @@ export default function Home() {
               </div>
             )}
           </div>
-
         </div>
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-3">
           <div>
@@ -317,17 +405,29 @@ export default function Home() {
               AgentMaxx <span className="text-primary">Cognitive Pro.</span>
             </h1>
             <p className="mt-1 max-w-3xl text-sm text-muted-foreground leading-relaxed">
-              Autonomous Web3 AI Agent with LangGraph multi-step reasoning, active in-context self-learning (DSPy pattern), quantitative finance indicators, live coding sandbox, and Base Sepolia L2 on-chain execution.
+              Agent Nghiên cứu & Lập kế hoạch có nguồn minh bạch, tích hợp RAG tài liệu, quản lý bộ nhớ dài hạn, định lượng tài chính và thực thi an toàn trên Base Sepolia L2.
             </p>
           </div>
         </div>
       </header>
 
-      <div className="grid flex-1 gap-6 lg:grid-cols-[450px_1fr]">
+      <div className="grid flex-1 gap-6 lg:grid-cols-[460px_1fr]">
         {/* Left column: Navigation Tabs & Detail Cards */}
         <aside className="flex flex-col gap-4">
           {/* Tab Selection Bar */}
-          <div className="grid grid-cols-5 gap-1 p-1 bg-muted/60 border font-mono text-xs uppercase">
+          <div className="grid grid-cols-6 gap-1 p-1 bg-muted/60 border font-mono text-[11px] uppercase">
+            <button
+              onClick={() => setActiveTab("workspace")}
+              className={cn("py-2 px-1 text-center transition-colors font-semibold", activeTab === "workspace" ? "bg-background shadow text-primary" : "text-muted-foreground hover:text-foreground")}
+            >
+              Task
+            </button>
+            <button
+              onClick={() => setActiveTab("memory")}
+              className={cn("py-2 px-1 text-center transition-colors font-semibold", activeTab === "memory" ? "bg-background shadow text-primary" : "text-muted-foreground hover:text-foreground")}
+            >
+              Memory
+            </button>
             <button
               onClick={() => setActiveTab("setup")}
               className={cn("py-2 px-1 text-center transition-colors font-semibold", activeTab === "setup" ? "bg-background shadow text-primary" : "text-muted-foreground hover:text-foreground")}
@@ -350,21 +450,145 @@ export default function Home() {
               onClick={() => setActiveTab("knowledge")}
               className={cn("py-2 px-1 text-center transition-colors font-semibold", activeTab === "knowledge" ? "bg-background shadow text-primary" : "text-muted-foreground hover:text-foreground")}
             >
-              Learn
-            </button>
-            <button
-              onClick={() => setActiveTab("history")}
-              className={cn("py-2 px-1 text-center transition-colors font-semibold", activeTab === "history" ? "bg-background shadow text-primary" : "text-muted-foreground hover:text-foreground")}
-            >
-              Txs
+              RAG
             </button>
           </div>
 
-          {/* TAB 1: Setup & Agent Wallet */}
+          {/* TAB 1: WORKSPACE & DOCUMENT RAG */}
+          {activeTab === "workspace" && (
+            <Card className="flex flex-col gap-4">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <SectionTitle num="01" title="Workspace & 5 Tác Vụ Mẫu" />
+              </CardHeader>
+              <CardContent className="flex flex-col gap-4 font-mono text-xs">
+                {/* 5 Standard Sample Tasks */}
+                <div className="flex flex-col gap-2">
+                  <p className="font-bold text-[11px] uppercase tracking-wider text-muted-foreground">
+                    Lộ trình 5 Yêu Cầu Mẫu Chuẩn:
+                  </p>
+                  <div className="flex flex-col gap-1.5">
+                    {STANDARD_TASKS.map((t) => (
+                      <button
+                        key={t.num}
+                        onClick={() => send(t.prompt)}
+                        disabled={thinking || !ready}
+                        className="p-2 border text-left bg-background hover:bg-muted/40 transition-colors flex flex-col gap-1 group"
+                      >
+                        <span className="font-bold text-foreground group-hover:text-primary transition-colors">
+                          {t.label}
+                        </span>
+                        <span className="text-[11px] text-muted-foreground line-clamp-1 font-sans">
+                          {t.desc}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Upload Document RAG Section */}
+                <div className="flex flex-col gap-2 pt-3 border-t">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-[11px] uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      <Upload className="size-3.5" /> Nạp Tài Liệu RAG (.md / .txt)
+                    </span>
+                  </div>
+                  <form onSubmit={handleUploadDocument} className="flex flex-col gap-2">
+                    <Input
+                      value={uploadFileName}
+                      onChange={(e) => setUploadFileName(e.target.value)}
+                      placeholder="Tên file (e.g. whitepaper.md)"
+                      className="h-8 text-xs font-mono"
+                    />
+                    <textarea
+                      value={uploadFileText}
+                      onChange={(e) => setUploadFileText(e.target.value)}
+                      placeholder="Dán nội dung tài liệu văn bản / markdown vào đây để agent phân đoạn và lập chỉ mục RAG..."
+                      className="w-full h-20 p-2 text-xs font-mono bg-background border resize-none focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                    <Button
+                      type="submit"
+                      size="sm"
+                      disabled={uploading || !uploadFileText.trim()}
+                      className="h-8 font-mono text-xs uppercase"
+                    >
+                      {uploading ? "Đang xử lý..." : "Nạp vào Knowledge Base"}
+                    </Button>
+                    {uploadMsg && <p className="text-[11px] text-primary">{uploadMsg}</p>}
+                  </form>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* TAB 2: MEMORY & PERSONA MANAGER */}
+          {activeTab === "memory" && (
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <SectionTitle num="02" title="Quản Lý Bộ Nhớ Dài Hạn" />
+                <Button variant="ghost" size="icon-xs" onClick={loadMemories} aria-label="Refresh memory">
+                  <RefreshCw className="size-3.5" />
+                </Button>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-4 font-mono text-xs max-h-[520px] overflow-y-auto pr-1">
+                {/* Add New Memory Form */}
+                <form onSubmit={handleAddMemory} className="flex flex-col gap-2 p-3 border bg-muted/20">
+                  <span className="font-bold text-[11px] uppercase text-muted-foreground flex items-center gap-1">
+                    <Plus className="size-3" /> Thêm Tùy Chọn / Profile Mới:
+                  </span>
+                  <Input
+                    value={newMemoryKey}
+                    onChange={(e) => setNewMemoryKey(e.target.value)}
+                    placeholder="Khóa (e.g. user_name, target_currency, preferred_tone)"
+                    className="h-8 text-xs font-mono"
+                  />
+                  <Input
+                    value={newMemoryVal}
+                    onChange={(e) => setNewMemoryVal(e.target.value)}
+                    placeholder="Giá trị (e.g. Khanh, Base Sepolia, Academic)"
+                    className="h-8 text-xs font-mono"
+                  />
+                  <Button type="submit" size="sm" className="h-8 font-mono text-xs uppercase">
+                    Lưu vào Bộ Nhớ
+                  </Button>
+                </form>
+
+                {/* Stored Memories List */}
+                <div className="flex flex-col gap-2">
+                  <p className="font-bold text-[11px] uppercase tracking-wider text-muted-foreground">
+                    Bộ nhớ đã lưu ({memories.length}):
+                  </p>
+                  {memories.length === 0 ? (
+                    <p className="text-muted-foreground text-[11px] italic p-2 border">Chưa có thông tin cá nhân hóa nào được lưu.</p>
+                  ) : (
+                    memories.map((m) => (
+                      <div key={m.key} className="p-2.5 border bg-background flex items-center justify-between gap-2">
+                        <div className="flex flex-col gap-0.5 truncate">
+                          <span className="font-bold text-primary text-xs uppercase">{m.key}</span>
+                          <span className="text-foreground text-xs truncate">{m.value}</span>
+                          <span className="text-[10px] text-muted-foreground">{new Date(m.updatedAt).toLocaleString()}</span>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon-xs"
+                          onClick={() => handleDeleteMemory(m.key)}
+                          className="text-muted-foreground hover:text-destructive"
+                          title="Xóa bộ nhớ"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </Button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* TAB 3: Setup & Agent Wallet */}
           {activeTab === "setup" && (
             <Card>
               <CardHeader>
-                <SectionTitle num="01" title="Gemini & Agent Autonomous Wallet" />
+                <SectionTitle num="03" title="Gemini & Agent Autonomous Wallet" />
               </CardHeader>
               <CardContent className="flex flex-col gap-4">
                 <SetupStep number={1} title="Gemini AI Engine" done={ready}>
@@ -389,9 +613,7 @@ export default function Home() {
             </Card>
           )}
 
-
-
-          {/* TAB 2: Faucet Center */}
+          {/* TAB 4: Faucet Center */}
           {activeTab === "faucet" && (
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
@@ -453,11 +675,11 @@ export default function Home() {
             </Card>
           )}
 
-          {/* TAB 3: Multi-Domain Tools Catalog */}
+          {/* TAB 5: Multi-Domain Tools Catalog */}
           {activeTab === "tools" && (
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
-                <SectionTitle num="02" title={`Multi-Domain Tools (${status?.tools.length ?? 0})`} />
+                <SectionTitle num="05" title={`Multi-Domain Tools (${status?.tools.length ?? 0})`} />
               </CardHeader>
               <CardContent className="flex flex-col gap-3 max-h-[520px] overflow-y-auto pr-1">
                 {status?.tools.map((t) => (
@@ -488,11 +710,11 @@ export default function Home() {
             </Card>
           )}
 
-          {/* TAB 4: Knowledge Base & Self-Training Metrics */}
+          {/* TAB 6: Knowledge Base & RAG Index */}
           {activeTab === "knowledge" && (
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
-                <SectionTitle num="03" title="Active Learning & Knowledge Base" />
+                <SectionTitle num="06" title="RAG & Knowledge Base" />
                 <Button variant="ghost" size="icon-xs" onClick={loadTraining} aria-label="Refresh training">
                   <RefreshCw className="size-3.5" />
                 </Button>
@@ -501,11 +723,11 @@ export default function Home() {
                 {training?.metrics && (
                   <div className="grid grid-cols-2 gap-2 border p-2.5 bg-muted/20">
                     <div>
-                      <span className="text-muted-foreground block text-[10px]">Total Runs Evaluated:</span>
+                      <span className="text-muted-foreground block text-[10px]">Total Runs:</span>
                       <span className="font-bold text-foreground">{training.metrics.totalRuns}</span>
                     </div>
                     <div>
-                      <span className="text-muted-foreground block text-[10px]">Success Pass Rate:</span>
+                      <span className="text-muted-foreground block text-[10px]">Pass Rate:</span>
                       <span className="font-bold text-emerald-500">{training.metrics.overallSuccessRate}</span>
                     </div>
                     <div>
@@ -531,7 +753,7 @@ export default function Home() {
                       </div>
                       <div className="flex flex-wrap gap-1">
                         {k.tags.map((t) => (
-                          <span key={t} className="text-[10px] text-muted-foreground bg-muted px-1">#{t}</span>
+                          <span key={t} className="text-[9px] bg-muted px-1 py-0.2 text-muted-foreground">#{t}</span>
                         ))}
                       </div>
                     </div>
@@ -540,90 +762,70 @@ export default function Home() {
               </CardContent>
             </Card>
           )}
-
-          {/* TAB 5: Transaction History */}
-          {activeTab === "history" && (
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <SectionTitle num="04" title={`Tx History (${wallet?.history?.length ?? 0})`} />
-                <Button variant="ghost" size="icon-xs" onClick={loadWallet} aria-label="Refresh txs">
-                  <RefreshCw className="size-3.5" />
-                </Button>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-2.5 max-h-[520px] overflow-y-auto pr-1">
-                {(!wallet?.history || wallet.history.length === 0) && (
-                  <p className="text-xs text-muted-foreground text-center py-6">No on-chain transactions yet.</p>
-                )}
-                {wallet?.history?.map((tx) => (
-                  <div key={tx.id} className="border p-2.5 font-mono text-xs flex flex-col gap-1.5 bg-background">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-primary">{tx.type}</span>
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          "text-[10px] uppercase font-mono px-1.5 py-0",
-                          tx.status === "CONFIRMED_SUCCESS" || tx.status === "SUCCESS"
-                            ? "border-emerald-500/40 text-emerald-500 bg-emerald-500/10"
-                            : tx.status === "SUBMITTED"
-                            ? "border-blue-500/40 text-blue-500 bg-blue-500/10"
-                            : "border-amber-500/40 text-amber-500 bg-amber-500/10"
-                        )}
-                      >
-                        {tx.status}
-                      </Badge>
-                    </div>
-                    <div className="text-muted-foreground truncate text-[11px]">To: {tx.to}</div>
-                    <div className="flex items-center justify-between text-[11px] pt-1 border-t">
-                      <span className="font-semibold text-foreground">{tx.amount}</span>
-                      {tx.explorerUrl ? (
-                        <a href={tx.explorerUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">
-                          BaseScan <ExternalLink className="size-2.5" />
-                        </a>
-                      ) : (
-                        <span className="text-[10px] text-muted-foreground">Proposal</span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
         </aside>
 
-        {/* Right column: Interactive Multi-Domain Chat Workspace */}
-        <Card className="flex h-[calc(100vh-5.5rem)] min-h-[640px] flex-col lg:sticky lg:top-6">
-          <CardHeader className="border-b flex flex-row items-center justify-between py-2.5">
-            <SectionTitle num="WORKSPACE" title="Cognitive Agent Execution Engine" />
-            <CardAction>
+        {/* Right column: Chat & Interactive Workbench */}
+        <Card className="flex flex-col overflow-hidden border">
+          <CardHeader className="border-b px-4 py-3 bg-muted/30 flex flex-row items-center justify-between">
+            <div className="flex items-center gap-2 font-mono text-xs">
+              <Terminal className="size-4 text-primary" />
+              <span className="font-bold text-foreground uppercase">AgentMaxx Interactive Terminal</span>
+            </div>
+            {messages.length > 0 && (
               <Button
                 variant="ghost"
                 size="sm"
-                className="font-mono uppercase text-xs"
+                className="h-7 text-xs font-mono text-muted-foreground hover:text-foreground"
                 onClick={() => setMessages([])}
-                disabled={messages.length === 0 || thinking}
               >
-                <RotateCcw className="size-3.5 mr-1" /> Clear
+                <RotateCcw className="mr-1 size-3" /> Clear Chat
               </Button>
-            </CardAction>
+            )}
           </CardHeader>
 
-          <ScrollArea className="min-h-0 flex-1">
-            <div className="flex flex-col gap-5 px-5 py-5">
+          {/* Real-time Progress Bar when Thinking */}
+          {thinking && (
+            <div className="flex flex-col gap-1.5 p-3 bg-primary/5 border-b border-primary/20 text-xs font-mono">
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-2 text-primary font-bold text-xs">
+                  <span className="size-2 rounded-full bg-primary animate-ping" />
+                  Đang thực thi Workflow nghiên cứu & lập kế hoạch có nguồn...
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={abortCurrentTask}
+                  className="h-6 text-[11px] text-destructive border-destructive/30 hover:bg-destructive/10 font-semibold"
+                >
+                  <Square className="mr-1 size-3 fill-current" /> Hủy tác vụ
+                </Button>
+              </div>
+              <div className="grid grid-cols-4 gap-1 text-[10px] text-center pt-1 border-t border-primary/10">
+                <span className="p-1 bg-primary/10 text-primary font-semibold">1. Hiểu mục tiêu</span>
+                <span className="p-1 bg-primary/10 text-primary font-semibold">2. Tìm nguồn</span>
+                <span className="p-1 bg-primary/10 text-primary font-semibold">3. Đối chiếu</span>
+                <span className="p-1 bg-primary/10 text-primary font-semibold">4. Xuất kết quả</span>
+              </div>
+            </div>
+          )}
+
+          <ScrollArea className="flex-1 p-4">
+            <div className="flex flex-col gap-4">
               {messages.length === 0 && (
-                <div className="flex flex-col items-center gap-4 py-10 text-center">
-                  <div className="flex size-12 items-center justify-center bg-primary text-primary-foreground shadow">
-                    <Bot className="size-6" />
-                  </div>
-                  <div>
-                    <p className="text-xl font-bold tracking-tight uppercase">AgentMaxx Multi-Domain Ready</p>
-                    <p className="mt-1 text-xs text-muted-foreground max-w-md">
-                      Autonomous cognitive reasoning across Web3, Quantitative Finance, Coding Sandbox, and Live Knowledge Retrieval.
+                <div className="flex flex-col gap-4 py-4 font-mono text-xs">
+                  <div className="border border-dashed p-4 bg-muted/20">
+                    <p className="font-bold text-foreground uppercase text-xs">
+                      🌟 AgentMaxx Research & Multi-Domain Engine
+                    </p>
+                    <p className="mt-1 text-muted-foreground leading-relaxed text-xs">
+                      Chọn nhanh một trong các tác vụ nghiên cứu & kế hoạch mẫu bên dưới hoặc nhập câu hỏi trực tiếp:
                     </p>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-w-2xl w-full text-left pt-2">
-                    {EXAMPLES.map((e) => (
+
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {QUICK_EXAMPLES.map((e) => (
                       <Button
-                        key={e.prompt}
+                        key={e.label}
                         variant="outline"
                         onClick={() => send(e.prompt)}
                         disabled={!ready}
@@ -704,13 +906,6 @@ export default function Home() {
                   </div>
                 )
               )}
-
-              {thinking && (
-                <div className="flex items-center gap-2 font-mono text-xs text-muted-foreground pl-11">
-                  <span className="inline-block size-2 rounded-full bg-primary animate-ping" />
-                  agent is synthesizing multi-domain reasoning...
-                </div>
-              )}
               <div ref={bottomRef} />
             </div>
           </ScrollArea>
@@ -728,7 +923,7 @@ export default function Home() {
                 <Input
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder={ready ? "Ask any domain: Web3 transfer, DEX swap, Quant indicators, Coding, or Deep Search..." : "Add your Gemini API key to start"}
+                  placeholder={ready ? "Ask any task: Research with sources, Compare options, Inspect Solidity security, or Base Sepolia transfer..." : "Add your Gemini API key to start"}
                   disabled={!ready}
                   className="h-11 border-0 bg-transparent font-mono text-sm focus-visible:ring-0 disabled:bg-transparent disabled:opacity-100"
                 />
@@ -1007,4 +1202,3 @@ function AgentMessageToolbar({ text, domain }: { text: string; domain?: string }
     </div>
   );
 }
-

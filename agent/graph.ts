@@ -144,7 +144,20 @@ ${route.systemInstructionAddendum}
   }
 
   if (!finalAnswer) {
-    finalAnswer = "Execution completed. Please let me know if you need more details!";
+    try {
+      const fallbackResponse = await ai.models.generateContent({
+        model: MODEL,
+        contents,
+        config: {
+          systemInstruction:
+            systemInstruction +
+            "\n\n[FINAL SYNTHESIS PASS]: Synthesize the final comprehensive answer based strictly on the observations and evidence collected above. Separate facts from inferences, cite sources, acknowledge any missing data, and list actionable next steps.",
+        },
+      });
+      finalAnswer = fallbackResponse.text ?? "Đã hoàn thành việc thu thập dữ liệu và xử lý các bước.";
+    } catch {
+      finalAnswer = "Đã thu thập dữ liệu thành công từ các công cụ. Hãy kiểm tra các bước thực thi chi tiết ở trên.";
+    }
   }
 
   // ─── STAGE 3: EVALUATE NODE (Groundedness & Criteria Scoring) ───

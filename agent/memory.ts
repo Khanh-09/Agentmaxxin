@@ -46,6 +46,15 @@ export function getUserFacts(): Record<string, string> {
   return result;
 }
 
+export function getDetailedUserFacts(): Array<{ key: string; value: string; updatedAt: string }> {
+  const store = readStore();
+  return Object.entries(store).map(([key, item]) => ({
+    key,
+    value: item.value,
+    updatedAt: item.updatedAt,
+  }));
+}
+
 export function removeUserFact(key: string): { success: boolean; key: string } {
   const store = readStore();
   const cleanKey = key.toLowerCase().trim();
@@ -53,3 +62,4 @@ export function removeUserFact(key: string): { success: boolean; key: string } {
   writeStore(store);
   return { success: true, key: cleanKey };
 }
+

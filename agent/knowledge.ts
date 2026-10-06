@@ -142,6 +142,43 @@ export function addKnowledgeItem(domain: KnowledgeItem["domain"], title: string,
   return newItem;
 }
 
+export function indexUploadedDocument(filename: string, fileText: string): { filename: string; chunksCount: number; items: KnowledgeItem[] } {
+  const clean = fileText.trim();
+  const chunkSize = 600;
+  const overlap = 100;
+  const chunks: string[] = [];
+
+  let start = 0;
+  while (start < clean.length) {
+    const end = Math.min(start + chunkSize, clean.length);
+    const chunk = clean.substring(start, end).trim();
+    if (chunk) chunks.push(chunk);
+    if (end >= clean.length) break;
+    start += chunkSize - overlap;
+  }
+
+  const createdItems: KnowledgeItem[] = [];
+  const baseName = filename.replace(/[^\w.-]/g, "_");
+
+  chunks.forEach((chunkText, i) => {
+    const item = addKnowledgeItem(
+      "general",
+      `Tài liệu: ${filename} [Đoạn ${i + 1}/${chunks.length}]`,
+      chunkText,
+      [baseName, "document", "rag", "user-upload", ...filename.toLowerCase().split(/[._-]/)],
+      `file://${filename}#section-${i + 1}`
+    );
+    createdItems.push(item);
+  });
+
+  return {
+    filename,
+    chunksCount: createdItems.length,
+    items: createdItems,
+  };
+}
+
+
 export function queryKnowledgeBase(query: string, domain?: string, limit = 4): KnowledgeItem[] {
   const kb = getKnowledgeBase();
   const tokens = query.toLowerCase().split(/\s+/).filter(Boolean);
