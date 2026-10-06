@@ -1,6 +1,7 @@
 node_modules
 .next
 .env
+.env.local
 .agent-wallet.json
 .agent-memory.json
 .agent-runs.jsonl
@@ -8,7 +9,11 @@ node_modules
 .agent-knowledge-base.json
 .agent-exemplars.json
 .agent-learnings.json
+.agent-tasks.json
+.agent-nonces.json
+.agent-projects.json
 next-env.d.ts
 
 *.tsbuildinfo
 .DS_Store
+

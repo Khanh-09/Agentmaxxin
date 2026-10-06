@@ -130,6 +130,18 @@ type AgentTask = {
   toolSteps?: Step[];
   sources?: any[];
   report?: any;
+  usageMetrics?: {
+    promptTokens?: number;
+    candidateTokens?: number;
+    totalTokens?: number;
+    estimatedCostUsd?: number | "chưa đo";
+    costCalculationMethod?: string;
+    toolCallsCount?: number;
+    executionTimeMs?: number;
+    searchProvider?: string;
+    llmModel?: string;
+    mode?: "live" | "mock";
+  };
   result?: string;
   error?: string;
   sideEffects?: string[];
@@ -212,6 +224,7 @@ export default function Home() {
   const [uploadMsg, setUploadMsg] = useState<string | null>(null);
   const [securityTestResult, setSecurityTestResult] = useState<any>(null);
   const [testingSecurity, setTestingSecurity] = useState(false);
+  const [agentRuntimeConfig, setAgentRuntimeConfig] = useState<any>(null);
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -267,9 +280,17 @@ export default function Home() {
       .catch(() => null);
   };
 
+  const loadAgentConfig = () => {
+    fetch("/api/agent/config")
+      .then((r) => r.json())
+      .then(setAgentRuntimeConfig)
+      .catch(() => null);
+  };
+
   useEffect(() => {
     initSession().then((tok) => {
       fetch("/api/agent").then((r) => r.json()).then(setStatus);
+      loadAgentConfig();
       loadWallet();
       loadTraining();
       loadMemories();
@@ -804,11 +825,26 @@ export default function Home() {
             <span className="text-foreground">/ AgentMaxx</span>&nbsp;Research & Stateful Planning Cognitive Engine
           </Label>
           <div className="flex flex-wrap items-center gap-2">
+            {agentRuntimeConfig?.isLive ? (
+              <Badge
+                variant="outline"
+                className="font-mono text-xs uppercase border-emerald-500/40 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 flex items-center gap-1.5"
+                title={`Live Services: LLM (${agentRuntimeConfig.llm.model}) + Search (${agentRuntimeConfig.search.provider}) + Base RPC`}
+              >
+                <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+                🟢 LIVE ENGINE ({agentRuntimeConfig.llm.model})
+              </Badge>
+            ) : (
+              <Badge
+                variant="outline"
+                className="font-mono text-xs uppercase border-amber-500/40 text-amber-600 dark:text-amber-400 bg-amber-500/10 flex items-center gap-1.5"
+              >
+                <span className="size-2 rounded-full bg-amber-500" />
+                🟡 DEMO / MOCK SANDBOX
+              </Badge>
+            )}
             <Badge variant="outline" className="font-mono text-xs uppercase hidden sm:inline-flex">
               Base Sepolia (84532)
-            </Badge>
-            <Badge variant="secondary" className="font-mono text-xs uppercase">
-              {status?.model ?? "gemini-3.5-flash-lite"}
             </Badge>
 
             {/* Session / Wallet Badge */}
@@ -1546,12 +1582,16 @@ export default function Home() {
                         ) : (
                           <>
                             {m.text}
+                            {i === messages.length - 1 && currentTask?.report && (
+                              <ReportAssessmentCard report={currentTask.report} usageMetrics={currentTask.usageMetrics} />
+                            )}
                             <AgentMessageToolbar
                               text={m.text}
                               domain={m.domain}
                               sources={currentTask?.sources || m.steps?.flatMap((s) => s.result?.results || [])}
                               taskStatus={currentTask?.status}
                               reportOutcome={currentTask?.report?.outcome}
+                              usageMetrics={currentTask?.usageMetrics}
                             />
                           </>
                         )}
@@ -1886,18 +1926,147 @@ function SearchResultsCard({ data }: { data: any }) {
   );
 }
 
+function ReportAssessmentCard({ report, usageMetrics }: { report: any; usageMetrics?: any }) {
+  const [showClaims, setShowClaims] = useState(false);
+  if (!report) return null;
+
+  return (
+    <div className="border border-primary/30 bg-primary/5 p-3 flex flex-col gap-2.5 font-mono text-xs mt-2.5">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-2 border-primary/20">
+        <div className="flex items-center gap-1.5 font-bold text-foreground uppercase text-[11px]">
+          <ShieldCheck className="size-3.5 text-primary" /> Thẩm Định Độ Tin Cậy & Trích Dẫn Báo Cáo
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Badge
+            variant="outline"
+            className={cn(
+              "text-[9px] uppercase font-mono px-2 py-0.5",
+              report.outcome === "complete" && "border-emerald-500/40 text-emerald-500 bg-emerald-500/10",
+              report.outcome === "partial" && "border-amber-500/40 text-amber-500 bg-amber-500/10",
+              report.outcome === "insufficient_evidence" && "border-rose-500/40 text-rose-500 bg-rose-500/10"
+            )}
+          >
+            Outcome: {report.outcome || "complete"}
+          </Badge>
+          {report.citationIntegrityScore !== undefined && (
+            <Badge variant="secondary" className="text-[9px] font-mono px-2 py-0.5 bg-primary/10 text-primary">
+              Citation Score: {(report.citationIntegrityScore * 100).toFixed(0)}%
+            </Badge>
+          )}
+        </div>
+      </div>
+
+      {/* Epistemic Limitation Disclaimer */}
+      <p className="text-[10px] text-muted-foreground font-sans leading-tight">
+        ℹ️ <em>Giới hạn đo lường:</em> Chỉ số thể hiện mức độ khớp từ khóa/ngữ nghĩa giữa nhận định và nguồn trích dẫn. Không đảm bảo 100% tính đúng đắn logic đa tầng hoặc dữ liệu ngoài phạm vi nguồn.
+      </p>
+
+      {/* Usage & Cost Metrics Box */}
+      {usageMetrics && (
+        <div className="p-2 border bg-background/80 flex flex-wrap items-center justify-between gap-2 text-[10px] font-mono">
+          <div className="flex flex-wrap items-center gap-2">
+            <span>⚡ Tokens: <strong>{usageMetrics.totalTokens ?? ((usageMetrics.promptTokens || 0) + (usageMetrics.candidateTokens || 0))}</strong> (In: {usageMetrics.promptTokens ?? 0} | Out: {usageMetrics.candidateTokens ?? 0})</span>
+            <span>|</span>
+            <span>💰 Chi phí: <strong className="text-primary">{typeof usageMetrics.estimatedCostUsd === "number" ? `$${usageMetrics.estimatedCostUsd.toFixed(6)}` : (usageMetrics.estimatedCostUsd || "chưa đo")}</strong></span>
+          </div>
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <span>⏱️ {usageMetrics.executionTimeMs ? `${(usageMetrics.executionTimeMs / 1000).toFixed(2)}s` : "..."}</span>
+            <span>|</span>
+            <span>Adapter: <strong>{usageMetrics.searchProvider || "live_api"}</strong></span>
+          </div>
+        </div>
+      )}
+
+      {/* Discrepancy Box */}
+      {report.sourceDiscrepancies && report.sourceDiscrepancies.length > 0 && (
+        <div className="p-2 border bg-amber-500/10 border-amber-500/30 flex flex-col gap-1">
+          <span className="font-bold text-amber-600 dark:text-amber-400 text-[10px] uppercase">
+            ⚖️ Phân tích sắc thái khác biệt giữa các nguồn:
+          </span>
+          {report.sourceDiscrepancies.map((d: any, idx: number) => (
+            <p key={idx} className="text-[11px] text-muted-foreground font-sans leading-relaxed">
+              • <strong>[{d.differingAspect}]:</strong> {d.explanation}
+            </p>
+          ))}
+        </div>
+      )}
+
+      {/* Actionable Steps / Remediation when partial/insufficient */}
+      {report.outcome !== "complete" && report.uncertaintiesAndConflicts?.length > 0 && (
+        <div className="p-2 border bg-rose-500/10 border-rose-500/30 flex flex-col gap-1">
+          <span className="font-bold text-rose-600 dark:text-rose-400 text-[10px] uppercase">
+            ⚠️ Điểm thiếu hụt dữ liệu & Khuyến nghị bổ sung:
+          </span>
+          {report.uncertaintiesAndConflicts.map((u: string, idx: number) => (
+            <p key={idx} className="text-[11px] text-muted-foreground font-sans">
+              • {u}
+            </p>
+          ))}
+        </div>
+      )}
+
+      {/* Collapsible Claims Breakdown */}
+      {report.evidenceStatements && report.evidenceStatements.length > 0 && (
+        <div className="pt-1">
+          <button
+            onClick={() => setShowClaims(!showClaims)}
+            className="text-[11px] text-primary hover:underline font-mono inline-flex items-center gap-1"
+          >
+            {showClaims ? "▲ Thu gọn thẩm định từng nhận định" : `▼ Xem chi tiết ${report.evidenceStatements.length} nhận định & bằng chứng`}
+          </button>
+          {showClaims && (
+            <div className="flex flex-col gap-2 mt-2 pt-2 border-t border-primary/20">
+              {report.evidenceStatements.map((c: any, idx: number) => (
+                <div key={idx} className="p-2 border bg-background flex flex-col gap-1">
+                  <div className="flex items-center justify-between gap-1.5">
+                    <span className="font-bold text-foreground text-xs">{c.claim}</span>
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "text-[9px] uppercase font-mono shrink-0",
+                        c.supportLevel === "supported" && "border-emerald-500/40 text-emerald-500 bg-emerald-500/10",
+                        c.supportLevel === "partially_supported" && "border-amber-500/40 text-amber-500 bg-amber-500/10",
+                        c.supportLevel === "unsupported" && "border-orange-500/40 text-orange-500 bg-orange-500/10",
+                        c.supportLevel === "invalid_source" && "border-rose-500/40 text-rose-500 bg-rose-500/10"
+                      )}
+                    >
+                      {c.supportLevel || "unsupported"}
+                    </Badge>
+                  </div>
+                  {c.evidenceSnippet && (
+                    <p className="text-[11px] text-muted-foreground font-sans italic">
+                      Dữ kiện: {c.evidenceSnippet}
+                    </p>
+                  )}
+                  {c.discrepancyNote && (
+                    <p className="text-[10px] text-amber-600 dark:text-amber-400 font-sans">
+                      ⚠️ {c.discrepancyNote}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AgentMessageToolbar({
   text,
   domain,
   sources,
   taskStatus,
   reportOutcome,
+  usageMetrics,
 }: {
   text: string;
   domain?: string;
   sources?: any[];
   taskStatus?: string;
   reportOutcome?: string;
+  usageMetrics?: any;
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -1912,6 +2081,11 @@ function AgentMessageToolbar({
     reportDoc += `**Chuyên mục (Domain):** ${domain || "General"}\n`;
     reportDoc += `**Vòng đời thực thi (Execution Status):** \`${taskStatus || "succeeded"}\`\n`;
     reportDoc += `**Chất lượng đầu ra (Report Outcome):** \`${reportOutcome || (sources?.length ? "complete" : "insufficient_evidence")}\`\n`;
+    if (usageMetrics) {
+      reportDoc += `**Tiêu thụ tài nguyên (Tokens):** ${usageMetrics.totalTokens ?? "N/A"} (Prompt: ${usageMetrics.promptTokens ?? 0}, Response: ${usageMetrics.candidateTokens ?? 0})\n`;
+      reportDoc += `**Ước tính chi phí:** ${typeof usageMetrics.estimatedCostUsd === "number" ? `$${usageMetrics.estimatedCostUsd.toFixed(6)}` : (usageMetrics.estimatedCostUsd || "chưa đo")}\n`;
+      reportDoc += `**Phương pháp tính chi phí:** ${usageMetrics.costCalculationMethod || "chưa đo"}\n`;
+    }
     reportDoc += `**Thời gian khởi tạo:** ${new Date().toLocaleString()}\n`;
     reportDoc += `\n---\n\n## 📝 Nội Dung Báo Cáo\n\n${text}\n\n`;
 
@@ -1959,3 +2133,4 @@ function AgentMessageToolbar({
     </div>
   );
 }
+

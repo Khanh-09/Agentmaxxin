@@ -51,6 +51,19 @@ export type TaskReport = {
   unsupportedClaimsCount?: number;
 };
 
+export type TaskUsageMetrics = {
+  promptTokens?: number;
+  candidateTokens?: number;
+  totalTokens?: number;
+  estimatedCostUsd?: number | "chưa đo";
+  costCalculationMethod?: string;
+  toolCallsCount?: number;
+  executionTimeMs?: number;
+  searchProvider?: string;
+  llmModel?: string;
+  mode?: "live" | "mock";
+};
+
 export type AgentTask = {
   id: string;
   projectId: string;
@@ -71,6 +84,7 @@ export type AgentTask = {
   toolSteps?: Array<{ tool: string; args: any; result: any; error?: boolean }>;
   sources?: TaskSource[];
   report?: TaskReport;
+  usageMetrics?: TaskUsageMetrics;
   result?: string;
   error?: string;
   sideEffects?: string[];

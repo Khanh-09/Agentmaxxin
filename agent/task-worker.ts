@@ -165,6 +165,7 @@ export async function executeBackgroundTask(params: {
         sideEffects,
         unreversibleActions,
         durationMs,
+        usageMetrics: result.usageMetrics,
         completedAt: new Date().toISOString(),
       },
       userId
@@ -186,6 +187,11 @@ export async function executeBackgroundTask(params: {
         sideEffects,
         unreversibleActions,
         durationMs,
+        usageMetrics: {
+          executionTimeMs: durationMs,
+          estimatedCostUsd: "chưa đo",
+          costCalculationMethod: "Thất bại trước khi hoàn tất - chưa đo",
+        },
         completedAt: new Date().toISOString(),
       },
       userId

@@ -12,9 +12,12 @@ import { evaluateResponse, type EvaluationResult } from "./evaluate";
 import { logExecution } from "./logger";
 import { queryKnowledgeBase, getAgentLearnings } from "./knowledge";
 import { getRelevantExemplars, recordHighRewardExemplar, reflectAndLearnFromRun } from "./training";
+import { getAgentRuntimeConfig } from "./config";
+import type { TaskUsageMetrics } from "./tasks";
 
-export const MODEL = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
+export const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 const MAX_STEPS = 5;
+const STEP_TIMEOUT_MS = 8000;
 
 export type ChatMessage = { role: "user" | "agent"; text: string };
 export type Step = { tool: string; args: unknown; result: unknown; error?: boolean };
@@ -26,6 +29,7 @@ export type GraphState = {
   answer: string;
   evaluation?: EvaluationResult;
   runId?: string;
+  usageMetrics?: TaskUsageMetrics;
 };
 
 export async function runGraph(
@@ -37,7 +41,11 @@ export async function runGraph(
   domain: string;
   evaluation: EvaluationResult;
   runId: string;
+  usageMetrics: TaskUsageMetrics;
 }> {
+  const startTime = Date.now();
+  const config = getAgentRuntimeConfig();
+
   if (ctx.abortSignal?.aborted) {
     throw new Error("Task execution cancelled by user.");
   }
@@ -52,6 +60,13 @@ export async function runGraph(
   const fewShotExemplars = getRelevantExemplars(lastUserMsg, route.domain, 2);
   const learnings = getAgentLearnings().slice(0, 3);
 
+  // Live Mode Enforcement: No silent mock fallback allowed
+  if (config.isLive && !process.env.GEMINI_API_KEY) {
+    throw new Error(
+      "Live Mode Error: GEMINI_API_KEY is not configured on server. In Live Mode, silent fallback to mock data is strictly prohibited."
+    );
+  }
+
   // ─── STAGE 2: EXECUTE NODE (Gemini Function Calling Loop) ───
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   const contents: Content[] = history.map((m) => ({
@@ -59,6 +74,10 @@ export async function runGraph(
     parts: [{ text: m.text }],
   }));
   const steps: Step[] = [];
+
+  let promptTokenCount = 0;
+  let candidateTokenCount = 0;
+  let hasUsageMetadata = false;
 
   // Ground with persistent memories
   const facts = getUserFacts();
@@ -113,7 +132,6 @@ ${route.systemInstructionAddendum}
     systemInstruction += `\n\n[ACTIVE LEARNING REFLECTION RULES]:\n${learnBlock}`;
   }
 
-
   let finalAnswer = "";
 
   for (let i = 0; i < MAX_STEPS; i++) {
@@ -138,6 +156,12 @@ ${route.systemInstructionAddendum}
       },
     });
 
+    if (response.usageMetadata) {
+      promptTokenCount += response.usageMetadata.promptTokenCount || 0;
+      candidateTokenCount += response.usageMetadata.candidatesTokenCount || 0;
+      hasUsageMetadata = true;
+    }
+
     if (ctx.abortSignal?.aborted) {
       throw new Error("Task execution cancelled by user.");
     }
@@ -161,7 +185,13 @@ ${route.systemInstructionAddendum}
       let error = false;
       try {
         if (!tool) throw new Error(`No tool named ${call.name}`);
-        result = await tool.run(call.args ?? {}, ctx);
+        
+        // Enforce per-step timeout
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error(`Tool '${call.name}' timeout (${STEP_TIMEOUT_MS}ms)`)), STEP_TIMEOUT_MS)
+        );
+
+        result = await Promise.race([tool.run(call.args ?? {}, ctx), timeoutPromise]);
       } catch (err) {
         result = { error: err instanceof Error ? err.message : String(err) };
         error = true;
@@ -189,6 +219,11 @@ ${route.systemInstructionAddendum}
             "\n\n[FINAL SYNTHESIS PASS]: Synthesize the final comprehensive answer based strictly on the observations and evidence collected above. Separate facts from inferences, cite sources, acknowledge any missing data, and list actionable next steps.",
         },
       });
+      if (fallbackResponse.usageMetadata) {
+        promptTokenCount += fallbackResponse.usageMetadata.promptTokenCount || 0;
+        candidateTokenCount += fallbackResponse.usageMetadata.candidatesTokenCount || 0;
+        hasUsageMetadata = true;
+      }
       finalAnswer = fallbackResponse.text ?? "Đã hoàn thành việc thu thập dữ liệu và xử lý các bước.";
     } catch {
       finalAnswer = "Đã thu thập dữ liệu thành công từ các công cụ. Hãy kiểm tra các bước thực thi chi tiết ở trên.";
@@ -220,9 +255,29 @@ ${route.systemInstructionAddendum}
     });
   }
 
-
   // ─── STAGE 4: LOG NODE (Persistent Run Record) ───
   const runId = logExecution(lastUserMsg, route.domain, steps, finalAnswer, evaluation);
+
+  // ─── METRICS & COST CALCULATION ───
+  const totalTokens = promptTokenCount + candidateTokenCount;
+  const estimatedCostUsd: number | "chưa đo" = hasUsageMetadata
+    ? Number(((promptTokenCount * 0.075 + candidateTokenCount * 0.30) / 1_000_000).toFixed(6))
+    : "chưa đo";
+
+  const usageMetrics: TaskUsageMetrics = {
+    promptTokens: promptTokenCount,
+    candidateTokens: candidateTokenCount,
+    totalTokens,
+    estimatedCostUsd,
+    costCalculationMethod: hasUsageMetadata
+      ? `Gemini ${MODEL} ($0.075/1M input, $0.30/1M output tokens)`
+      : "chưa đo",
+    toolCallsCount: steps.length,
+    executionTimeMs: Date.now() - startTime,
+    searchProvider: config.search.provider,
+    llmModel: config.llm.model,
+    mode: config.mode,
+  };
 
   return {
     answer: finalAnswer,
@@ -230,6 +285,7 @@ ${route.systemInstructionAddendum}
     domain: route.domain,
     evaluation,
     runId,
+    usageMetrics,
   };
 }
 

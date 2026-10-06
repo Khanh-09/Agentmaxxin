@@ -1,4 +1,4 @@
-import { TaskSource, TaskReport, ClaimVerification } from "./tasks";
+import type { TaskSource, TaskReport, ClaimVerification } from "./tasks";
 
 /**
  * Validates citation integrity and cross-source analysis.
@@ -91,11 +91,18 @@ export function validateCitationsAndAnalyzeEvidence(params: {
       const combinedSourceText = validSourceIds
         .map((sid) => (sourceMap.get(sid)?.content || sourceMap.get(sid)?.snippet || "").toLowerCase())
         .join(" ");
-
       const matchedKw = claimKeywords.filter((kw) => combinedSourceText.includes(kw));
       const matchRatio = claimKeywords.length > 0 ? matchedKw.length / claimKeywords.length : 0;
 
-      if (matchRatio >= 0.4 || (claimKeywords.length <= 2 && matchRatio > 0)) {
+      // Check numerical & date accuracy
+      const claimNumbers = (trimmed.match(/\b\d+(?:[.,]\d+)?\b/g) || []).map((n) => n.replace(/,/g, ""));
+      const sourceNumbers = (combinedSourceText.match(/\b\d+(?:[.,]\d+)?\b/g) || []).map((n) => n.replace(/,/g, ""));
+      const hasMissingNumbers = claimNumbers.length > 0 && !claimNumbers.some((n) => sourceNumbers.includes(n));
+
+      if (hasMissingNumbers) {
+        supportLevel = "unsupported";
+        hasSupport = false;
+      } else if (matchRatio >= 0.4 || (claimKeywords.length <= 2 && matchRatio > 0)) {
         supportLevel = "supported";
         hasSupport = true;
       } else if (matchRatio > 0.15) {

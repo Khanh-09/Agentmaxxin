@@ -5,7 +5,10 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test:mock": "npx tsx benchmark_suite.mjs",
+    "test:integration": "node test_live_integration.mjs",
+    "test:all": "npx tsx benchmark_suite.mjs && node test_live_integration.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",

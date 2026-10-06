@@ -270,44 +270,114 @@ flowchart TD
 
 ---
 
-## 🚀 Installation & Quick Start
+## 🔬 Week 2 Milestone: Evidence-Based Research Engine & Stateful Background Worker
 
-### 1. Prerequisites
-- **Node.js**: `v18.17.0+` or `v20.x`
-- **Package Manager**: `npm` or `pnpm`
-- **Google Gemini API Key**: [Get one for free at Google AI Studio](https://aistudio.google.com/)
+AgentMaxx has been significantly upgraded from a basic chat interface into an **evidence-based research and stateful execution engine** with cryptographic provenance, multi-worker safety, and **Live Service Integration**:
 
-### 2. Clone and Install
-```bash
-git clone https://github.com/Khanh-09/Agentmaxxin.git
-cd Agentmaxxin/my-agent
-npm install
+```mermaid
+flowchart LR
+    subgraph Client_Side [Frontend DApp Workbench]
+        UI[User UI / Project Terminal] -->|POST /api/tasks + Idempotency Key| API[Next.js API Route]
+        API -->|Task ID <150ms| UI
+        UI -->|Polling Progress| TaskStore[(Persistent Atomic Store\n.agent-tasks.json or DATA_DIR)]
+    end
+
+    subgraph Background_Worker [Decoupled Worker Engine]
+        Worker[Background Worker Node] -->|Atomic CAS Lease Claim| TaskStore
+        Worker -->|Signal Propagation| AbortMap[AbortController Map]
+        Worker -->|Execute Graph & Tools| CognitiveGraph[LangGraph Cognitive Engine]
+        CognitiveGraph -->|Live LLM / Token Metering| GeminiAPI[Google Gemini Live API]
+        CognitiveGraph -->|Live Web Search & Scraping| SearchAPI[Wikipedia Live / Tavily API]
+        Worker -->|Audit Evidence & Citations| Validator[Citation & Evidence Validator]
+        Validator -->|Persist Sources, Metrics & Outcome| TaskStore
+    end
 ```
 
-### 3. Environment Variables
-Create a `.env` file in `my-agent/`:
-```env
-GEMINI_API_KEY=your_gemini_api_key_here
-GEMINI_MODEL=gemini-3.5-flash-lite
-```
-
-### 4. Run Development Server
-```bash
-npm run dev
-```
-Open [http://localhost:3000](http://localhost:3000) to launch the AgentMaxx DApp interface.
+### Key Engineering Upgrades:
+1. **Live Service Mode & Explicit Adapter Transparency**:
+   - Explicit UI indicator displaying active service adapters: 🟢 **LIVE ENGINE** (`gemini-2.5-flash` + `Wikipedia Live API` + `Base L2 RPC`) vs 🟡 **DEMO / MOCK SANDBOX**.
+   - **Strict No-Silent-Fallback Rule**: In Live mode, if keys are missing or external APIs fail, the engine surfaces the actual error and never silently fabricates mock responses.
+2. **Decoupled Asynchronous Tasks & Token/Cost Metering**:
+   - HTTP requests return a unique `taskId` in `<150ms`.
+   - Long-running multi-tool workflows execute in independent background workers with real-time progress polling.
+   - Precise token consumption tracking (`promptTokenCount`, `candidatesTokenCount`) with transparent cost calculation (`$0.075 / 1M input`, `$0.30 / 1M output`).
+3. **Atomic Concurrency & Crash Recovery**:
+   - Compare-And-Swap (CAS) task claiming with leases (`leaseExpiresAt: now + 45s`) and optimistic concurrency versioning.
+   - Prevents duplicate worker execution across concurrent processes.
+   - `recoverInterruptedTasks()` detects server crashes upon restart and transitions unfinished tasks to `interrupted` while preserving completed on-chain side-effects.
+4. **Cryptographic Authentication & Replay Attack Defense**:
+   - Single-use challenge nonce registry (`.agent-nonces.json`) with 5-minute TTL.
+   - EIP-191 `personal_sign` signature verification via `viem.verifyMessage`.
+   - Replay attacks using identical signatures or expired nonces are rejected with `HTTP 401 Unauthorized`.
+5. **Epistemic Citation Integrity & Nuanced Discrepancy Analyzer**:
+   - Strict source verification: Every `[src_id]` in the report must exist in the task's retrieved sources list.
+   - Sources with `status === "failed"` are strictly rejected as valid evidence.
+   - Distinguishes *differing measurement conditions* (e.g. Lab benchmark vs Live network traffic) from *direct factual contradictions*.
+   - Decoupled **Execution Lifecycle** (`queued` | `running` | `succeeded` | `failed` | `cancelled` | `interrupted`) from **Epistemic Outcome** (`complete` | `partial` | `insufficient_evidence`).
+6. **Strict Data Isolation (Prompt Injection Shield)**:
+   - Web pages and external documents are treated strictly as passive untrusted data.
+   - Role reversal, XML overrides, and hidden comment payloads are neutralized without altering the research task.
 
 ---
 
-## 🔒 Security & Human-in-the-Loop Safety
+## 🧪 Verification & Test Suites (Mock Sandbox vs. Live Integration)
 
-1. **Private Key Isolation**: The Agent Autonomous Wallet private key (`.agent-wallet.json`) resides strictly server-side and is never sent to the browser.
-2. **User Sovereign Custody**: User funds remain in their own MetaMask wallet; the user only funds the agent with small testnet amounts as needed.
-3. **Two-Phase Transfer Verification**: No ETH/ERC-20 transfer is broadcast without generating a proposal `prepare_transfer` and receiving explicit user confirmation in the UI.
-4. **Git Safeguards**: All wallet secrets, memory files, and training logs are strictly excluded via `.gitignore`.
+To guarantee both fast offline regression safety and real-world API reliability, tests are split into two independent test runners:
+
+### 1. Fast Mock Sandbox Benchmark (`npm run test:mock`)
+```bash
+npm run test:mock
+# Runs 20 representative unit/benchmark tasks in isolated sandbox
+```
+- **Total Tasks**: 20/20 Passed (100.0%)
+- **Citation Error Rate**: 0.0% (100% of ghost/mismatched citations caught)
+- **Average Latency**: ~293ms / task
+
+### 2. Live Service Integration Suite (`npm run test:integration`)
+```bash
+npm run test:integration
+# Runs 5 full-cycle scenarios calling real Google Gemini LLM, live Web Search, and real RPC
+```
+
+| Scenario | Input Query & Workflow | Live Outcome & Real Behaviors | Status | Latency | Estimated Cost |
+| :--- | :--- | :--- | :---: | :---: | :---: |
+| **1. Nghiên cứu có nguồn** | Optimism OP Stack Layer 2 & Rollup Architecture | Retreived 4 real Wikipedia sources, synthesized report, verified claims | ✅ PASS | 9123ms | $0.001931 (23,436 tokens) |
+| **2. Không đủ dữ liệu** | Query nonexistent token `fake_xyz_token_phantom_2026` | 0 fake sources fabricated, returned `insufficient_evidence` with remediation steps | ✅ PASS | 1664ms | $0.000431 (5,746 tokens) |
+| **3. Khác điều kiện đo** | Compare theoretical peak TPS vs live average TPS | Identified `measurement_conditions` discrepancy nuance in source analysis box | ✅ PASS | 3986ms | $0.000600 (7,890 tokens) |
+| **4. Lỗi có kiểm soát** | Scrape non-existent/invalid URL `https://non-existent-domain...` | Error isolated in source record (`status: "failed"`), prevented server crash | ✅ PASS | 10338ms | $0.000821 (10,940 tokens) |
+| **5. Resume sau khi hoàn thành** | Re-fetch project by ID after worker completes | Messages, task states, source provenance, and usage metrics restored intact | ✅ PASS | 3690ms | $0.000551 (7,340 tokens) |
+
+---
+
+## 🎬 90–120s Demonstration Walkthrough Script
+
+Follow this structured script to demonstrate the full end-to-end capabilities of AgentMaxx:
+
+| Timestamp | Screen / Action | Spoken Narrative & Key Features Demonstrated |
+| :--- | :--- | :--- |
+| **0:00 – 0:20** | **Home & Dual-Wallet Connect** | *"Welcome to AgentMaxx. Notice the 🟢 LIVE ENGINE badge confirming active connection to Google Gemini, Live Web Search, and Base L2 RPC. We connect our Web3 wallet via cryptographic challenge nonce verification, keeping private keys completely client-side."* |
+| **0:20 – 0:45** | **Stateful Research Query** | *"Let's submit a complex live research task: 'Nghiên cứu Optimism OP Stack và dẫn nguồn'. The API responds in under 150ms with a Task ID. The background worker asynchronously executes web queries, crawls verified sources, and streams progress."* |
+| **0:45 – 1:10** | **Epistemic Report & Realistic Outcome** | *"The task completes. Notice the decoupled badges: Execution Status is `succeeded`, while Report Outcome is `partial` reflecting real-world source coverage. Under 'Thẩm định nhận định', we see token usage (23k tokens, $0.0019 cost), live search citations, and the epistemic disclaimer explaining citation score boundaries."* |
+| **1:10 – 1:35** | **Export Markdown & Page Reload** | *"We export the complete Markdown report with metadata, execution status, and cost breakdown. When we reload the page (F5) and click 'Dự Án & Lịch Sử Tác Vụ', the entire project, task history, and verified sources are seamlessly restored from persistent storage."* |
+| **1:35 – 2:00** | **Zero-Data & Controlled Error Safety** | *"If we query a nonexistent token or simulate an unreachable URL, the agent does not hallucinate fake sources or crash. It reports `insufficient_evidence` with actionable remediation steps, maintaining complete operational safety."* |
+
+---
+
+## ⚠️ Real-World Limitations & Production Deployment Conditions
+
+1. **Persistent Storage Configuration (`DATA_DIR`)**:
+   - *Local demo*: Stores files atomically in the local workspace (`.agent-tasks.json`, `.agent-projects.json`).
+   - *Container / Single-Node Deployment*: Set the `DATA_DIR` environment variable to a persistent volume mount (e.g. `DATA_DIR=/data` in Docker, Railway, or Render) to guarantee data persistence across redeployments and container restarts.
+   - *Distributed Multi-Node Cluster*: For horizontal scaling across multiple nodes, migrate storage to **PostgreSQL** with row-level locks (`FOR UPDATE`) and **Redis** for pub/sub abort signals.
+2. **Web Search & Scraping Scope**:
+   - Live research uses verified Wikipedia API and Tavily Deep Web Search (when `TAVILY_API_KEY` is provided). Single Page Apps requiring JavaScript execution should be integrated with headless browser scrapers (e.g. Firecrawl).
+3. **Citation Integrity Disclaimer**:
+   - Citation scoring evaluates lexical, numerical, and entity alignment between assertions and retrieved passages. It is designed to flag ghost citations, timestamp drifts, and unsupported metrics, but does not replace expert human judgment for multi-hop logical deductions.
 
 ---
 
 ## 📜 License & Acknowledgments
 - **License**: MIT © 2026 Khanh-09 / Rise In Agentmaxxing
 - **Ecosystem**: Base Sepolia L2 (Coinbase), Google DeepMind Gemini, LangChain / LangGraph.js, viem.
+
+
