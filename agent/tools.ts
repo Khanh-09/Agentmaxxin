@@ -9,11 +9,12 @@
  * and save. It shows up in the "Tools" list on the page.
  */
 import { getWalletAddress, getWalletBalance, payAndFetch } from "./wallet";
+import { getUserFacts, removeUserFact, saveUserFact } from "./memory";
 
 export type Tool = {
   name: string;
   description: string;
-  category?: "paid" | "crypto" | "web" | "utility";
+  category?: "paid" | "crypto" | "web" | "memory" | "utility";
   /** JSON Schema describing the inputs. */
   parameters: object;
   /** The code that runs when the agent calls this tool. */
@@ -105,43 +106,225 @@ export const tools: Tool[] = [
     },
   },
 
-  // ─── 3. Knowledge & Information Lookup (Wikipedia REST API) ───
+  // ─── 3. Tavily & Web Search Tool (tavily-web skill) ───
   {
-    name: "search_knowledge",
+    name: "get_web_search",
     category: "web",
     description:
-      "Look up verified summaries and definitions on Wikipedia for topics, technology concepts, people, places, or history.",
+      "Fetch live web search results, news, articles, and documentation URLs for any query from the internet.",
     parameters: {
       type: "object",
       properties: {
-        topic: {
+        query: {
           type: "string",
-          description: "Topic or entity to search (e.g. 'Ethereum', 'Smart contract', 'Quantum computing', 'Alan Turing')",
+          description: "Search keywords or topic (e.g. 'Base L2 network' or 'Ethereum upgrades')",
         },
       },
-      required: ["topic"],
+      required: ["query"],
     },
-    run: async ({ topic }) => {
-      try {
-        const url = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(topic.trim())}`;
-        const res = await fetch(url, { headers: { "User-Agent": "AgentMaxx-App/1.0" } });
-        if (!res.ok) {
-          return { error: `No Wikipedia article summary found for '${topic}'. Try a different keyword.` };
+    run: async ({ query }) => {
+      // 1. Try Tavily API if key is provided
+      if (process.env.TAVILY_API_KEY) {
+        try {
+          const res = await fetch("https://api.tavily.com/search", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ api_key: process.env.TAVILY_API_KEY, query, max_results: 4 }),
+          });
+          const data = await res.json();
+          if (data.results && data.results.length > 0) {
+            return {
+              provider: "Tavily Search API",
+              query,
+              results: data.results.map((r: any) => ({
+                title: r.title,
+                url: r.url,
+                snippet: r.content,
+              })),
+            };
+          }
+        } catch {
+          // Fall back
         }
+      }
+
+      // 2. DuckDuckGo HTML Web Search
+      try {
+        const res = await fetch(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`, {
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            Accept: "text/html,application/xhtml+xml",
+          },
+        });
+        const html = await res.text();
+        const results: { title: string; url: string; snippet: string }[] = [];
+        const resultBlocks = html.split('class="result__body"').slice(1);
+        for (const block of resultBlocks.slice(0, 4)) {
+          const titleMatch = block.match(/class="result__title"[\s\S]*?<a[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/i);
+          const snippetMatch = block.match(/class="result__snippet"[^>]*>([\s\S]*?)<\/a>/i);
+          if (titleMatch || snippetMatch) {
+            const rawUrl = titleMatch ? titleMatch[1] : "";
+            const cleanUrlMatch = rawUrl.match(/uddg=([^&]+)/);
+            const actualUrl = cleanUrlMatch ? decodeURIComponent(cleanUrlMatch[1]) : rawUrl;
+            const title = titleMatch ? titleMatch[2].replace(/<[^>]+>/g, "").trim() : "Search Result";
+            const snippet = snippetMatch ? snippetMatch[1].replace(/<[^>]+>/g, "").trim() : "";
+            if (title || snippet) {
+              results.push({ title, url: actualUrl, snippet });
+            }
+          }
+        }
+
+        if (results.length > 0) {
+          return {
+            query,
+            sourceCount: results.length,
+            results: results.slice(0, 3).map((r) => ({
+              title: r.title,
+              url: r.url,
+              snippet: r.snippet,
+            })),
+          };
+        }
+      } catch {
+        // Fall back to Wikipedia
+      }
+
+      // 3. Wikipedia Open Search & Knowledge Engine
+      try {
+        const url = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&utf8=&format=json`;
+        const res = await fetch(url, { headers: { "User-Agent": "AgentMaxx-App/1.0" } });
         const data = await res.json();
+        const searchList = data.query?.search || [];
         return {
-          title: data.title,
-          description: data.description || "N/A",
-          extract: data.extract,
-          url: data.content_urls?.desktop?.page,
+          query,
+          sourceCount: searchList.length,
+          results: searchList.slice(0, 3).map((s: any) => ({
+            title: s.title,
+            url: `https://en.wikipedia.org/wiki/${encodeURIComponent(s.title.replace(/ /g, "_"))}`,
+            snippet: s.snippet.replace(/<[^>]+>/g, ""),
+          })),
         };
       } catch (err) {
-        return { error: `Knowledge lookup failed: ${err instanceof Error ? err.message : String(err)}` };
+        return { error: `Search failed: ${err instanceof Error ? err.message : String(err)}` };
       }
     },
   },
 
-  // ─── 4. Blockchain Network Health & Gas Inspector (Base Sepolia RPC) ───
+  // ─── 4. Web Page Scraper & Reader (firecrawl-scraper skill) ───
+  {
+    name: "extract_web_page",
+    category: "web",
+    description:
+      "Scrape, parse and extract readable text/markdown from any target webpage URL for deep analysis, summarization, or fact-checking.",
+    parameters: {
+      type: "object",
+      properties: {
+        url: {
+          type: "string",
+          description: "Full URL of the webpage to scrape and extract (e.g. 'https://docs.base.org')",
+        },
+      },
+      required: ["url"],
+    },
+    run: async ({ url }) => {
+      // 1. Try Firecrawl API if configured
+      if (process.env.FIRECRAWL_API_KEY) {
+        try {
+          const res = await fetch("https://api.firecrawl.dev/v1/scrape", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${process.env.FIRECRAWL_API_KEY}`,
+            },
+            body: JSON.stringify({ url, formats: ["markdown"] }),
+          });
+          const data = await res.json();
+          if (data.data?.markdown) {
+            return {
+              provider: "Firecrawl Scraper API",
+              url,
+              content: data.data.markdown.slice(0, 3000),
+            };
+          }
+        } catch {
+          // Fall back to direct fetch
+        }
+      }
+
+      // 2. Built-in HTML Parser & Text Extractor Fallback
+      try {
+        const res = await fetch(url, {
+          headers: {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            Accept: "text/html,application/xhtml+xml",
+          },
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        const html = await res.text();
+        const title = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1]?.trim() || "Page Content";
+        const cleanText = html
+          .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+          .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "")
+          .replace(/<header\b[^<]*(?:(?!<\/header>)<[^<]*)*<\/header>/gi, "")
+          .replace(/<footer\b[^<]*(?:(?!<\/footer>)<[^<]*)*<\/footer>/gi, "")
+          .replace(/<nav\b[^<]*(?:(?!<\/nav>)<[^<]*)*<\/nav>/gi, "")
+          .replace(/<[^>]+>/g, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+
+        return {
+          provider: "Agent Built-in Web Reader",
+          url,
+          title,
+          content: cleanText.slice(0, 2500) + (cleanText.length > 2500 ? "..." : ""),
+        };
+      } catch (err) {
+        return { error: `Failed to scrape URL '${url}': ${err instanceof Error ? err.message : String(err)}` };
+      }
+    },
+  },
+
+  // ─── 5. Conversation Memory: Remember Fact (conversation-memory skill) ───
+  {
+    name: "remember_user_fact",
+    category: "memory",
+    description:
+      "Save and persist user preferences, name, favorite tokens, custom rules, or facts across chat sessions.",
+    parameters: {
+      type: "object",
+      properties: {
+        key: {
+          type: "string",
+          description: "Identifier for the fact (e.g. 'user_name', 'favorite_crypto', 'target_currency')",
+        },
+        value: {
+          type: "string",
+          description: "The value or statement to remember (e.g. 'Alex', 'Solana', 'EUR')",
+        },
+      },
+      required: ["key", "value"],
+    },
+    run: async ({ key, value }) => {
+      const res = saveUserFact(key, value);
+      return { status: "saved", memoryKey: res.key, value: res.value };
+    },
+  },
+
+  // ─── 6. Conversation Memory: Read Memories (conversation-memory skill) ───
+  {
+    name: "get_user_memories",
+    category: "memory",
+    description: "Retrieve all stored user preferences and facts previously saved in memory.",
+    parameters: { type: "object", properties: {} },
+    run: async () => {
+      return {
+        memories: getUserFacts(),
+      };
+    },
+  },
+
+  // ─── 7. Blockchain Network Health & Gas Inspector (Base Sepolia RPC) ───
   {
     name: "get_network_info",
     category: "crypto",
@@ -191,7 +374,7 @@ export const tools: Tool[] = [
     },
   },
 
-  // ─── 5. Mathematical & Financial Computation Engine ───
+  // ─── 8. Mathematical & Financial Computation Engine ───
   {
     name: "calculate",
     category: "utility",
@@ -221,7 +404,7 @@ export const tools: Tool[] = [
     },
   },
 
-  // ─── 6. Agent Crypto Wallet Inspector ───
+  // ─── 9. Agent Crypto Wallet Inspector ───
   {
     name: "get_my_wallet",
     category: "crypto",
@@ -235,7 +418,7 @@ export const tools: Tool[] = [
     }),
   },
 
-  // ─── 7. Randomization & Dice Generator ───
+  // ─── 10. Randomization & Dice Generator ───
   {
     name: "roll_dice",
     category: "utility",
@@ -258,5 +441,6 @@ export const tools: Tool[] = [
     },
   },
 ];
+
 
 

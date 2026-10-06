@@ -27,12 +27,12 @@ type Status = { hasApiKey: boolean; model: string; tools: { name: string; descri
 type WalletInfo = { address: string | null; balance?: string };
 
 const EXAMPLES = [
+  "Remember that my name is Khanh and my favorite coin is ETH",
+  "Search the web for latest AI Agent trends with sources",
+  "Scrape and summarize https://docs.base.org",
   "What is the real-time weather in Hanoi and Tokyo?",
   "Compare current BTC, ETH and SOL prices in USD",
-  "Search knowledge about Smart Contracts on Wikipedia",
   "Check Base Sepolia network gas and latest block",
-  "Calculate compound interest: 5000 * (1 + 0.08)^5",
-  "Roll 3 20-sided dice",
 ];
 
 export default function Home() {
