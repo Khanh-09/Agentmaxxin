@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
+  ArrowDown,
   ArrowRight,
   Bot,
   Brain,
@@ -310,7 +311,31 @@ export default function Home() {
   const [agentRuntimeConfig, setAgentRuntimeConfig] = useState<any>(null);
 
   const abortControllerRef = useRef<AbortController | null>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
+  const isNearBottomRef = useRef(true);
+  const [showNewMessagesBtn, setShowNewMessagesBtn] = useState(false);
+
+  const handleChatScroll = () => {
+    if (!chatScrollRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = chatScrollRef.current;
+    const distanceToBottom = scrollHeight - scrollTop - clientHeight;
+    const nearBottom = distanceToBottom < 80;
+    isNearBottomRef.current = nearBottom;
+    if (nearBottom) {
+      setShowNewMessagesBtn(false);
+    }
+  };
+
+  const scrollToBottom = (smooth = true) => {
+    if (chatScrollRef.current) {
+      chatScrollRef.current.scrollTo({
+        top: chatScrollRef.current.scrollHeight,
+        behavior: smooth ? "smooth" : "auto",
+      });
+      setShowNewMessagesBtn(false);
+      isNearBottomRef.current = true;
+    }
+  };
 
   const getAuthHeaders = (tok = sessionToken) => ({
     "Content-Type": "application/json",
@@ -691,8 +716,16 @@ export default function Home() {
   }, [proposals.length]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, thinking]);
+    if (isNearBottomRef.current) {
+      // Defer slightly to ensure DOM render has completed
+      const timer = setTimeout(() => {
+        scrollToBottom(true);
+      }, 50);
+      return () => clearTimeout(timer);
+    } else if (messages.length > 0) {
+      setShowNewMessagesBtn(true);
+    }
+  }, [messages.length, thinking]);
 
   /** Auto-save or update the active project session */
   async function autoSaveProject(
@@ -1140,9 +1173,9 @@ export default function Home() {
   const ready = Boolean(status?.hasApiKey);
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-[1600px] flex-col gap-6 px-4 py-6 md:px-8 md:py-8">
+    <main className="mx-auto flex h-[100dvh] max-h-[100dvh] max-w-[1600px] flex-col overflow-hidden px-3 py-2.5 md:px-6 md:py-3.5 gap-3">
       {/* Header */}
-      <header className="flex flex-col gap-4 border-b pb-5">
+      <header className="shrink-0 flex flex-col gap-2.5 border-b pb-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Label>
             <img src="/risein-logo.svg" alt="Rise In" className="mr-3 h-5 w-auto" />
@@ -1200,23 +1233,23 @@ export default function Home() {
             )}
           </div>
         </div>
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-3">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-2">
           <div>
-            <h1 className="text-3xl leading-tight font-bold tracking-tight uppercase md:text-5xl">
+            <h1 className="text-2xl leading-tight font-bold tracking-tight uppercase md:text-3xl lg:text-4xl">
               AgentMaxx <span className="text-primary">Cognitive Pro.</span>
             </h1>
-            <p className="mt-1 max-w-3xl text-sm text-muted-foreground leading-relaxed">
-              Agent Nghiên cứu & Lập kế hoạch có nguồn minh bạch, quản lý dự án & tác vụ theo trạng thái (queued, running, succeeded, failed, cancelled), kiểm tra quyền sở hữu backend, và thực thi an toàn trên Base Sepolia L2.
+            <p className="mt-0.5 max-w-3xl text-xs text-muted-foreground leading-relaxed">
+              Agent Nghiên cứu & Lập kế hoạch có nguồn minh bạch, quản lý dự án & tác vụ theo trạng thái, bộ nhớ dài hạn đa phạm vi và thực thi an toàn trên Base Sepolia L2.
             </p>
           </div>
         </div>
       </header>
 
-      <div className="grid flex-1 gap-6 lg:grid-cols-[460px_1fr]">
+      <div className="grid flex-1 min-h-0 gap-4 lg:grid-cols-[440px_1fr] overflow-hidden">
         {/* Left column: Navigation Tabs & Detail Cards */}
-        <aside className="flex flex-col gap-4">
+        <aside className="flex flex-col min-h-0 gap-2.5 overflow-hidden">
           {/* Tab Selection Bar */}
-          <div className="grid grid-cols-8 gap-1 p-1 bg-muted/60 border font-mono text-[9px] uppercase">
+          <div className="shrink-0 grid grid-cols-8 gap-1 p-1 bg-muted/60 border font-mono text-[9px] uppercase">
             <button
               onClick={() => setActiveTab("workspace")}
               className={cn("py-2 px-0.5 text-center transition-colors font-semibold", activeTab === "workspace" ? "bg-background shadow text-primary" : "text-muted-foreground hover:text-foreground")}
@@ -1269,8 +1302,8 @@ export default function Home() {
 
           {/* TAB 1: WORKSPACE & DOCUMENT RAG */}
           {activeTab === "workspace" && (
-            <Card className="flex flex-col gap-4">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <Card className="flex flex-col flex-1 min-h-0 overflow-hidden border">
+              <CardHeader className="shrink-0 flex flex-row items-center justify-between pb-2">
                 <SectionTitle num="01" title="Workspace & 5 Tác Vụ Mẫu" />
                 <Button
                   variant="outline"
@@ -1281,7 +1314,7 @@ export default function Home() {
                   <Plus className="mr-1 size-3" /> Tác Vụ Mới
                 </Button>
               </CardHeader>
-              <CardContent className="flex flex-col gap-4 font-mono text-xs">
+              <CardContent className="flex flex-col gap-4 font-mono text-xs flex-1 min-h-0 overflow-y-auto pr-1">
                 {/* 5 Standard Sample Tasks */}
                 <div className="flex flex-col gap-2">
                   <p className="font-bold text-[11px] uppercase tracking-wider text-muted-foreground">
@@ -1343,14 +1376,14 @@ export default function Home() {
 
           {/* TAB 2: SAVED PROJECTS, HANDOFF SUMMARIES & TASK HISTORY */}
           {activeTab === "projects" && (
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
+            <Card className="flex flex-col flex-1 min-h-0 overflow-hidden border">
+              <CardHeader className="shrink-0 flex flex-row items-center justify-between">
                 <SectionTitle num="SAVED" title="Dự Án & Lịch Sử Tác Vụ" />
                 <Button variant="ghost" size="icon-xs" onClick={() => loadProjects()} aria-label="Refresh projects">
                   <RefreshCw className="size-3.5" />
                 </Button>
               </CardHeader>
-              <CardContent className="flex flex-col gap-3 font-mono text-xs max-h-[560px] overflow-y-auto pr-1">
+              <CardContent className="flex flex-col gap-3 font-mono text-xs flex-1 min-h-0 overflow-y-auto pr-1">
                 {/* Search & Filter Header */}
                 <div className="flex flex-col gap-2 pb-2 border-b">
                   <div className="flex items-center justify-between">
@@ -1501,11 +1534,11 @@ export default function Home() {
 
           {/* TAB: SECURITY & ACCESS CONTROL TEST SUITE */}
           {activeTab === "security" && (
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
+            <Card className="flex flex-col flex-1 min-h-0 overflow-hidden border">
+              <CardHeader className="shrink-0 flex flex-row items-center justify-between">
                 <SectionTitle num="SEC" title="Kiểm Tra Quyền Truy Cập (Auth Test)" />
               </CardHeader>
-              <CardContent className="flex flex-col gap-3 font-mono text-xs max-h-[520px] overflow-y-auto pr-1">
+              <CardContent className="flex flex-col gap-3 font-mono text-xs flex-1 min-h-0 overflow-y-auto pr-1">
                 <div className="p-2.5 border border-primary/30 bg-primary/5 text-muted-foreground leading-relaxed text-[11px]">
                   🛡️ <strong>Chính sách Bảo mật:</strong> Backend kiểm tra phiên mã hóa HMAC-SHA256. Mọi yêu cầu đọc/sửa/xóa đều bắt buộc xác thực quyền sở hữu; địa chỉ gửi từ client bị phớt lờ nếu không khớp chữ ký phiên.
                 </div>
@@ -1579,14 +1612,14 @@ export default function Home() {
 
           {/* TAB 3: SCOPED LONG-TERM MEMORY & PERSONA MANAGER */}
           {activeTab === "memory" && (
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
+            <Card className="flex flex-col flex-1 min-h-0 overflow-hidden border">
+              <CardHeader className="shrink-0 flex flex-row items-center justify-between">
                 <SectionTitle num="03" title="Bộ Nhớ Dài Hạn (Scoped Long-Term Memory)" />
                 <Button variant="ghost" size="icon-xs" onClick={() => loadMemories()} aria-label="Refresh memory">
                   <RefreshCw className="size-3.5" />
                 </Button>
               </CardHeader>
-              <CardContent className="flex flex-col gap-3 font-mono text-xs max-h-[580px] overflow-y-auto pr-1">
+              <CardContent className="flex flex-col gap-3 font-mono text-xs flex-1 min-h-0 overflow-y-auto pr-1">
                 {/* Scope & Status Filter Pills */}
                 <div className="flex flex-col gap-2 p-2.5 border bg-muted/20">
                   <div className="flex items-center justify-between">
@@ -1846,14 +1879,14 @@ export default function Home() {
 
           {/* TAB 4: Setup, Browser Wallet & Transfer Proposals Hub */}
           {activeTab === "setup" && (
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
+            <Card className="flex flex-col flex-1 min-h-0 overflow-hidden border">
+              <CardHeader className="shrink-0 flex flex-row items-center justify-between">
                 <SectionTitle num="04" title="Ví & Quản Lý Giao Dịch Base Sepolia" />
                 <Button variant="ghost" size="icon-xs" onClick={() => { loadWallet(); loadProposals(); }} aria-label="Refresh wallet">
                   <RefreshCw className="size-3.5" />
                 </Button>
               </CardHeader>
-              <CardContent className="flex flex-col gap-4 font-mono text-xs max-h-[620px] overflow-y-auto pr-1">
+              <CardContent className="flex flex-col gap-4 font-mono text-xs flex-1 min-h-0 overflow-y-auto pr-1">
                 {/* 1. Browser Wallet Connection Card */}
                 <div className="border p-3 bg-muted/20 flex flex-col gap-2.5">
                   <div className="flex items-center justify-between">
@@ -2077,14 +2110,14 @@ export default function Home() {
 
           {/* TAB 5: Faucet Center */}
           {activeTab === "faucet" && (
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
+            <Card className="flex flex-col flex-1 min-h-0 overflow-hidden border">
+              <CardHeader className="shrink-0 flex flex-row items-center justify-between">
                 <SectionTitle num="FAUCET" title="Base Sepolia Testnet Faucets" />
                 <Button variant="ghost" size="icon-xs" onClick={loadWallet} aria-label="Refresh balance">
                   <RefreshCw className="size-3.5" />
                 </Button>
               </CardHeader>
-              <CardContent className="flex flex-col gap-3 font-mono text-xs max-h-[520px] overflow-y-auto pr-1">
+              <CardContent className="flex flex-col gap-3 font-mono text-xs flex-1 min-h-0 overflow-y-auto pr-1">
                 {wallet?.address && (
                   <div className="border border-amber-500/30 bg-amber-500/10 p-3 flex flex-col gap-2">
                     <div className="flex items-center justify-between">
@@ -2139,11 +2172,11 @@ export default function Home() {
 
           {/* TAB 6: Multi-Domain Tools Catalog */}
           {activeTab === "tools" && (
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
+            <Card className="flex flex-col flex-1 min-h-0 overflow-hidden border">
+              <CardHeader className="shrink-0 flex flex-row items-center justify-between">
                 <SectionTitle num="06" title={`Multi-Domain Tools (${status?.tools.length ?? 0})`} />
               </CardHeader>
-              <CardContent className="flex flex-col gap-3 max-h-[520px] overflow-y-auto pr-1">
+              <CardContent className="flex flex-col gap-3 flex-1 min-h-0 overflow-y-auto pr-1">
                 {status?.tools.map((t) => (
                   <div key={t.name} className="border-b pb-2.5 last:border-0 last:pb-0">
                     <div className="flex items-center justify-between gap-2">
@@ -2174,11 +2207,11 @@ export default function Home() {
 
           {/* TAB 7: Knowledge Base & RAG Index */}
           {activeTab === "knowledge" && (
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
+            <Card className="flex flex-col flex-1 min-h-0 overflow-hidden border">
+              <CardHeader className="shrink-0 flex flex-row items-center justify-between">
                 <SectionTitle num="07" title="RAG & Knowledge Base" />
               </CardHeader>
-              <CardContent className="flex flex-col gap-3 max-h-[520px] overflow-y-auto pr-1 font-mono text-xs">
+              <CardContent className="flex flex-col gap-3 flex-1 min-h-0 overflow-y-auto pr-1 font-mono text-xs">
                 <div className="flex items-center justify-between pb-1 border-b">
                   <span>Chỉ mục chunks đã lập:</span>
                   <Badge variant="secondary">{training?.knowledgeCount ?? 0} Chunks</Badge>
@@ -2207,8 +2240,8 @@ export default function Home() {
         </aside>
 
         {/* Right column: Chat & Interactive Stateful Workbench */}
-        <Card className="flex flex-col overflow-hidden border">
-          <CardHeader className="border-b px-4 py-3 bg-muted/30 flex flex-wrap items-center justify-between gap-2">
+        <Card className="flex flex-col flex-1 min-h-0 min-w-0 overflow-hidden border relative">
+          <CardHeader className="shrink-0 border-b px-4 py-3 bg-muted/30 flex flex-wrap items-center justify-between gap-2">
             <div className="flex flex-wrap items-center gap-2 font-mono text-xs">
               <Terminal className="size-4 text-primary" />
               <span className="font-bold text-foreground uppercase">AgentMaxx Stateful Terminal</span>
@@ -2281,7 +2314,7 @@ export default function Home() {
 
           {/* Real-time Progress Bar & Cancellation */}
           {thinking && (
-            <div className="flex flex-col gap-1.5 p-3 bg-primary/5 border-b border-primary/20 text-xs font-mono">
+            <div className="shrink-0 flex flex-col gap-1.5 p-3 bg-primary/5 border-b border-primary/20 text-xs font-mono">
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-2 text-primary font-bold text-xs">
                   <span className="size-2 rounded-full bg-primary animate-ping" />
@@ -2314,7 +2347,7 @@ export default function Home() {
               <div
                 key={p.id}
                 className={cn(
-                  "p-3.5 border-b font-mono text-xs flex flex-col gap-2.5 transition-all",
+                  "shrink-0 p-3.5 border-b font-mono text-xs flex flex-col gap-2.5 transition-all",
                   isPendingApproval && "bg-amber-500/10 border-amber-500/40",
                   isPendingReceipt && "bg-blue-500/10 border-blue-500/40"
                 )}
@@ -2399,8 +2432,12 @@ export default function Home() {
             );
           })}
 
-          <ScrollArea className="flex-1 p-4">
-            <div className="flex flex-col gap-4">
+          <div className="relative flex-1 min-h-0 min-w-0 flex flex-col overflow-hidden">
+            <div
+              ref={chatScrollRef}
+              onScroll={handleChatScroll}
+              className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4 flex flex-col gap-4"
+            >
               {messages.length === 0 && (
                 <div className="flex flex-col gap-4 py-4 font-mono text-xs">
                   <div className="border border-dashed p-4 bg-muted/20">
@@ -2431,22 +2468,25 @@ export default function Home() {
 
               {messages.map((m, i) =>
                 m.role === "user" ? (
-                  <div key={i} className="max-w-[85%] self-end bg-primary px-4 py-2.5 font-medium text-primary-foreground text-sm">
+                  <div
+                    key={i}
+                    className="max-w-[85%] self-end bg-primary px-4 py-2.5 font-medium text-primary-foreground text-sm rounded-sm break-words [overflow-wrap:anywhere] min-w-0"
+                  >
                     {m.text}
                   </div>
                 ) : (
-                  <div key={i} className="flex max-w-[92%] gap-3 self-start">
+                  <div key={i} className="flex max-w-[92%] gap-3 self-start min-w-0 w-full">
                     <div className="flex size-8 shrink-0 items-center justify-center border bg-background">
                       <Bot className="size-4 text-primary" />
                     </div>
                     <div className="flex min-w-0 flex-1 flex-col gap-2.5">
                       {m.domain && (
-                        <div className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
+                        <div className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground shrink-0">
                           <span className="size-1.5 rounded-full bg-emerald-500" /> Domain: <span className="font-bold text-foreground uppercase">{m.domain}</span>
                         </div>
                       )}
                       {m.steps?.map((s, j) => (
-                        <div key={j} className="flex flex-col gap-2">
+                        <div key={j} className="flex flex-col gap-2 min-w-0 max-w-full">
                           <ToolCall step={s} />
                           {s.tool === "get_web_search" && s.result?.results && (
                             <SearchResultsCard data={s.result} />
@@ -2465,7 +2505,7 @@ export default function Home() {
                       ))}
                       <div
                         className={cn(
-                          "px-4 py-3 whitespace-pre-wrap text-sm leading-relaxed",
+                          "px-4 py-3 whitespace-pre-wrap text-sm leading-relaxed break-words [overflow-wrap:anywhere] min-w-0 max-w-full overflow-x-auto",
                           m.error ? "bg-destructive/10 text-destructive border border-destructive/20" : "bg-muted"
                         )}
                       >
@@ -2522,11 +2562,25 @@ export default function Home() {
                   </div>
                 )
               )}
-              <div ref={bottomRef} />
+              <div />
             </div>
-          </ScrollArea>
 
-          <CardFooter className="border-t p-3 bg-background">
+            {/* In-container Floating "Tin mới" Button */}
+            {showNewMessagesBtn && (
+              <button
+                type="button"
+                onClick={() => {
+                  scrollToBottom(true);
+                  setShowNewMessagesBtn(false);
+                }}
+                className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-primary text-primary-foreground text-xs font-mono shadow-lg hover:bg-primary/90 transition-all cursor-pointer animate-bounce"
+              >
+                <ArrowDown className="size-3.5" /> Tin mới
+              </button>
+            )}
+          </div>
+
+          <CardFooter className="shrink-0 border-t p-3 bg-background">
             <form
               className="flex w-full gap-2"
               onSubmit={(e) => {
