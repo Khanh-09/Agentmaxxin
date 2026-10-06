@@ -5,6 +5,10 @@ node_modules
 .agent-memory.json
 .agent-runs.jsonl
 .agent-transactions.json
+.agent-knowledge-base.json
+.agent-exemplars.json
+.agent-learnings.json
 next-env.d.ts
+
 *.tsbuildinfo
 .DS_Store

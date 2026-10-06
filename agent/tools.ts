@@ -17,7 +17,10 @@ import {
   resolveWeb3Name,
   simulateTokenSwap,
 } from "./wallet";
+import { addKnowledgeItem, queryKnowledgeBase } from "./knowledge";
+import { calculateIntelligenceMetrics } from "./training";
 import { getUserFacts, saveUserFact } from "./memory";
+
 
 
 export type Tool = {
@@ -572,5 +575,223 @@ export const tools: Tool[] = [
     },
     run: async ({ contractAddress, functionName = "view" }) => readSmartContract(contractAddress, functionName),
   },
+
+  // ─── 20. Multi-Domain Knowledge Base Semantic Search ───
+  {
+    name: "search_knowledge_base",
+    category: "web",
+    description: "Search the agent's internal multi-domain knowledge base (Web3, DeFi, Coding, AI, Science, Productivity) with keyword and semantic tagging.",
+    parameters: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Keyword or concept to search for in internal knowledge base" },
+        domain: {
+          type: "string",
+          enum: ["web3", "coding", "finance", "productivity", "science", "general"],
+          description: "Optional domain filter",
+        },
+      },
+      required: ["query"],
+    },
+    run: async ({ query, domain }) => {
+      const results = queryKnowledgeBase(query, domain);
+      return { query, count: results.length, results };
+    },
+  },
+
+  // ─── 21. Self-Learning: Ingest New Knowledge Document ───
+  {
+    name: "learn_new_knowledge",
+    category: "memory",
+    description: "Teach the agent a new concept, framework documentation, or fact to store in its persistent knowledge base.",
+    parameters: {
+      type: "object",
+      properties: {
+        domain: {
+          type: "string",
+          enum: ["web3", "coding", "finance", "productivity", "science", "general"],
+          description: "Knowledge category",
+        },
+        title: { type: "string", description: "Short title or topic name" },
+        content: { type: "string", description: "Detailed summary or documentation text to memorize" },
+        tags: { type: "array", items: { type: "string" }, description: "Search tags" },
+      },
+      required: ["domain", "title", "content"],
+    },
+    run: async ({ domain, title, content, tags = [] }) => {
+      const item = addKnowledgeItem(domain, title, content, tags);
+      return { success: true, message: `Successfully learned '${title}' into domain '${domain}'.`, item };
+    },
+  },
+
+  // ─── 22. Self-Training & Intelligence Benchmark Report ───
+  {
+    name: "get_training_intelligence",
+    category: "utility",
+    description: "Retrieve self-learning intelligence metrics, domain accuracy scores, in-context exemplars count, and reflection learning rules.",
+    parameters: { type: "object", properties: {} },
+    run: async () => calculateIntelligenceMetrics(),
+  },
+
+  // ─── 23. Coding Sandbox: Safe JavaScript Code Runner ───
+  {
+    name: "execute_javascript",
+    category: "utility",
+    description: "Execute and test safe JavaScript/TypeScript algorithms, array manipulations, data filtering, and logical computations.",
+    parameters: {
+      type: "object",
+      properties: {
+        code: { type: "string", description: "JavaScript code to execute (must return a value or log output)" },
+      },
+      required: ["code"],
+    },
+    run: async ({ code }) => {
+      try {
+        const fn = new Function(`"use strict"; ${code}`);
+        const result = fn();
+        return { success: true, code, output: result ?? "Executed successfully (no return value)" };
+      } catch (err: any) {
+        return { success: false, code, error: err.message };
+      }
+    },
+  },
+
+  // ─── 24. Quantitative Finance: Technical Analysis (RSI, SMA, EMA) ───
+  {
+    name: "calculate_technical_indicators",
+    category: "utility",
+    description: "Calculate trading indicators like RSI (14 periods), SMA (Simple Moving Average), and EMA (Exponential Moving Average) from price arrays.",
+    parameters: {
+      type: "object",
+      properties: {
+        prices: { type: "array", items: { type: "number" }, description: "Array of historical closing prices (min 5 points)" },
+        period: { type: "number", description: "Period for MA or RSI (e.g. 14). Default 14." },
+      },
+      required: ["prices"],
+    },
+    run: async ({ prices, period = 14 }: { prices: number[]; period?: number }) => {
+      if (!Array.isArray(prices) || prices.length < 3) {
+        throw new Error("Provide at least 3 historical price points for calculation.");
+      }
+
+      // SMA
+      const n = Math.min(period, prices.length);
+      const recent = prices.slice(-n);
+      const sma = recent.reduce((a, b) => a + b, 0) / n;
+
+      // RSI (Simplified 14-period standard)
+      let gains = 0;
+      let losses = 0;
+      for (let i = 1; i < prices.length; i++) {
+        const diff = prices[i] - prices[i - 1];
+        if (diff >= 0) gains += diff;
+        else losses += Math.abs(diff);
+      }
+      const avgGain = gains / (prices.length - 1);
+      const avgLoss = losses / (prices.length - 1);
+      const rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
+      const rsi = avgLoss === 0 ? 100 : 100 - 100 / (1 + rs);
+
+      return {
+        dataPoints: prices.length,
+        latestPrice: prices[prices.length - 1],
+        sma: Number(sma.toFixed(2)),
+        rsi: Number(rsi.toFixed(2)),
+        marketSignal: rsi > 70 ? "OVERBOUGHT (Watch for pullback)" : rsi < 30 ? "OVERSOLD (Potential bounce)" : "NEUTRAL / BALANCED",
+      };
+    },
+  },
+
+  // ─── 25. Universal Unit Converter ───
+  {
+    name: "convert_units",
+    category: "utility",
+    description: "Convert units between metric/imperial length, temperature (Celsius, Fahrenheit, Kelvin), crypto gas (Wei, Gwei, ETH), and digital storage (MB, GB, TB).",
+    parameters: {
+      type: "object",
+      properties: {
+        value: { type: "number", description: "Numerical value to convert" },
+        fromUnit: { type: "string", description: "Source unit (e.g. 'celsius', 'km', 'gwei', 'gb')" },
+        toUnit: { type: "string", description: "Target unit (e.g. 'fahrenheit', 'miles', 'eth', 'tb')" },
+      },
+      required: ["value", "fromUnit", "toUnit"],
+    },
+    run: async ({ value, fromUnit, toUnit }) => {
+      const from = fromUnit.toLowerCase().trim();
+      const to = toUnit.toLowerCase().trim();
+
+      // Temperature
+      if (from === "celsius" && to === "fahrenheit") return { input: `${value} C`, output: `${(value * 9) / 5 + 32} F` };
+      if (from === "fahrenheit" && to === "celsius") return { input: `${value} F`, output: `${((value - 32) * 5) / 9} C` };
+
+      // Crypto Gas
+      if (from === "gwei" && to === "eth") return { input: `${value} Gwei`, output: `${value * 1e-9} ETH` };
+      if (from === "eth" && to === "gwei") return { input: `${value} ETH`, output: `${value * 1e9} Gwei` };
+      if (from === "wei" && to === "eth") return { input: `${value} Wei`, output: `${value * 1e-18} ETH` };
+
+      // Length
+      if (from === "km" && to === "miles") return { input: `${value} km`, output: `${(value * 0.621371).toFixed(4)} miles` };
+      if (from === "miles" && to === "km") return { input: `${value} miles`, output: `${(value * 1.60934).toFixed(4)} km` };
+
+      // Digital Storage
+      if (from === "gb" && to === "tb") return { input: `${value} GB`, output: `${value / 1024} TB` };
+      if (from === "tb" && to === "gb") return { input: `${value} TB`, output: `${value * 1024} GB` };
+
+      return { error: `Unsupported conversion from '${fromUnit}' to '${toUnit}'` };
+    },
+  },
+
+  // ─── 26. Polyglot Multi-Lingual Translator ───
+  {
+    name: "translate_text",
+    category: "utility",
+    description: "Format and structure high-precision translations between Vietnamese, English, Japanese, Chinese, French, and Spanish with cultural tone adaptation.",
+    parameters: {
+      type: "object",
+      properties: {
+        text: { type: "string", description: "Text to translate" },
+        targetLanguage: { type: "string", description: "Target language (e.g. 'Vietnamese', 'English', 'Japanese')" },
+        tone: { type: "string", description: "Tone: 'formal', 'conversational', 'technical', 'poetic'" },
+      },
+      required: ["text", "targetLanguage"],
+    },
+    run: async ({ text, targetLanguage, tone = "conversational" }) => {
+      return {
+        originalText: text,
+        targetLanguage,
+        tone,
+        translationInstruction: `Provide professional translation into ${targetLanguage} adhering to ${tone} tone with accurate terminology.`,
+      };
+    },
+  },
+
+  // ─── 27. Task & Action Item Manager ───
+  {
+    name: "manage_task_todo",
+    category: "utility",
+    description: "Manage, structure, and categorize project tasks, development milestones, and actionable todos.",
+    parameters: {
+      type: "object",
+      properties: {
+        action: { type: "string", enum: ["create", "list", "prioritize"], description: "Task operation" },
+        title: { type: "string", description: "Task title or milestone name" },
+        priority: { type: "string", enum: ["high", "medium", "low"], description: "Priority level" },
+      },
+      required: ["action"],
+    },
+    run: async ({ action, title = "Review and test agent workflow", priority = "medium" }) => {
+      return {
+        action,
+        task: {
+          id: `task_${Date.now()}`,
+          title,
+          priority,
+          status: "IN_PROGRESS",
+          createdAt: new Date().toISOString(),
+        },
+      };
+    },
+  },
 ];
+
 

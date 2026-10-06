@@ -10,6 +10,8 @@ import { getUserFacts } from "./memory";
 import { routeRequest, type RouteDecision } from "./router";
 import { evaluateResponse, type EvaluationResult } from "./evaluate";
 import { logExecution } from "./logger";
+import { queryKnowledgeBase, getAgentLearnings } from "./knowledge";
+import { getRelevantExemplars, recordHighRewardExemplar, reflectAndLearnFromRun } from "./training";
 
 export const MODEL = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
 const MAX_STEPS = 5;
@@ -41,6 +43,11 @@ export async function runGraph(
   // ─── STAGE 1: ROUTE NODE ───
   const route = routeRequest(lastUserMsg);
 
+  // ─── STAGE 1.5: RETRIEVE KNOWLEDGE & IN-CONTEXT EXEMPLARS (DSPy & RAG Pattern) ───
+  const relevantKnowledge = queryKnowledgeBase(lastUserMsg, route.domain, 2);
+  const fewShotExemplars = getRelevantExemplars(lastUserMsg, route.domain, 2);
+  const learnings = getAgentLearnings().slice(0, 3);
+
   // ─── STAGE 2: EXECUTE NODE (Gemini Function Calling Loop) ───
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   const contents: Content[] = history.map((m) => ({
@@ -52,11 +59,30 @@ export async function runGraph(
   // Ground with persistent memories
   const facts = getUserFacts();
   const memoryKeys = Object.keys(facts);
-  let systemInstruction = `You are AgentMaxx, an intelligent multi-domain AI Agent.\n${route.systemInstructionAddendum}`;
+  let systemInstruction = `You are AgentMaxx Pro, an autonomous multi-domain AI Agent expert in Web3, Finance, Coding, Science, and Creative Architecture.\n${route.systemInstructionAddendum}`;
+
   if (memoryKeys.length > 0) {
     const memoryBlock = memoryKeys.map((k) => `- ${k}: ${facts[k]}`).join("\n");
-    systemInstruction += `\n\n[PERSISTENT USER MEMORIES]:\n${memoryBlock}\n(Use these facts seamlessly when answering the user).`;
+    systemInstruction += `\n\n[PERSISTENT USER PROFILE & MEMORIES]:\n${memoryBlock}`;
   }
+
+  if (relevantKnowledge.length > 0) {
+    const kbBlock = relevantKnowledge.map((k) => `[Topic: ${k.title}]\n${k.content}`).join("\n\n");
+    systemInstruction += `\n\n[RETRIEVED DOMAIN KNOWLEDGE BASE]:\n${kbBlock}`;
+  }
+
+  if (fewShotExemplars.length > 0) {
+    const exBlock = fewShotExemplars
+      .map((e) => `User: "${e.userPrompt}"\nTools: [${e.toolsCalled.join(", ")}]\nReasoning: ${e.reasoningSnippet}`)
+      .join("\n\n");
+    systemInstruction += `\n\n[FEW-SHOT HIGH-REWARD DEMONSTRATIONS]:\n${exBlock}`;
+  }
+
+  if (learnings.length > 0) {
+    const learnBlock = learnings.map((l) => `- Action Rule: ${l.recommendedAction}`).join("\n");
+    systemInstruction += `\n\n[ACTIVE LEARNING REFLECTION RULES]:\n${learnBlock}`;
+  }
+
 
   let finalAnswer = "";
 
@@ -117,6 +143,24 @@ export async function runGraph(
   // ─── STAGE 3: EVALUATE NODE (Groundedness & Criteria Scoring) ───
   const evaluation = evaluateResponse(lastUserMsg, finalAnswer, steps, route.domain);
 
+  // ─── STAGE 3.5: ACTIVE LEARNING & IN-CONTEXT ADAPTATION ───
+  if (evaluation.verdict === "PASS" && evaluation.score >= 90 && steps.length > 0) {
+    recordHighRewardExemplar(
+      route.domain,
+      lastUserMsg,
+      steps.map((s) => s.tool),
+      finalAnswer.slice(0, 150),
+      evaluation.score
+    );
+  } else if (evaluation.verdict === "FAIL" || evaluation.score < 80) {
+    reflectAndLearnFromRun({
+      domain: route.domain,
+      userPrompt: lastUserMsg,
+      toolsCalled: steps.map((s) => s.tool),
+      evaluation,
+    });
+  }
+
   // ─── STAGE 4: LOG NODE (Persistent Run Record) ───
   const runId = logExecution(lastUserMsg, route.domain, steps, finalAnswer, evaluation);
 
@@ -128,3 +172,4 @@ export async function runGraph(
     runId,
   };
 }
+
