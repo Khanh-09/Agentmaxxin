@@ -306,11 +306,11 @@ export default function Home() {
             </button>
           </div>
 
-          {/* TAB 1: Setup & Dual Wallet Connection */}
+          {/* TAB 1: Setup & Agent Wallet */}
           {activeTab === "setup" && (
             <Card>
               <CardHeader>
-                <SectionTitle num="01" title="Gemini & Dual Web3 Wallets" />
+                <SectionTitle num="01" title="Gemini & Agent Autonomous Wallet" />
               </CardHeader>
               <CardContent className="flex flex-col gap-4">
                 <SetupStep number={1} title="Gemini AI Engine" done={ready}>
@@ -322,7 +322,7 @@ export default function Home() {
                   {ready && <p className="font-mono text-xs text-emerald-500">✓ Connected & Active (gemini-3.5-flash-lite)</p>}
                 </SetupStep>
 
-                <SetupStep number={2} title="Agent Autonomous Wallet" done={Boolean(wallet?.address)}>
+                <SetupStep number={2} title="Agent Autonomous Web3 Wallet" done={Boolean(wallet?.address)} last>
                   {wallet && !wallet.address && (
                     <div className="flex flex-col gap-3">
                       <p className="text-xs text-muted-foreground">
@@ -335,44 +335,10 @@ export default function Home() {
                   )}
                   {wallet?.address && <WalletDetails wallet={wallet} onRefresh={loadWallet} />}
                 </SetupStep>
-
-                <SetupStep number={3} title="User Browser Wallet (Optional)" done={Boolean(userAccount)} last>
-                  {!userAccount ? (
-                    <div className="flex flex-col gap-2 pt-1">
-                      <p className="text-xs text-muted-foreground">
-                        Connect your MetaMask / Coinbase / Rabby wallet to easily fund the agent with test ETH.
-                      </p>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={connectBrowserWallet}
-                        disabled={connectingUser}
-                        className="w-fit font-mono text-xs uppercase"
-                      >
-                        <WalletCards className="size-3.5 mr-1.5 text-primary" />
-                        {connectingUser ? "Connecting..." : "Connect MetaMask / Web3 Wallet"}
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col gap-2 border p-2.5 bg-muted/20 font-mono text-xs">
-                      <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Connected User:</span>
-                        <Badge variant="outline" className="text-emerald-500 border-emerald-500/30 text-[10px]">Active</Badge>
-                      </div>
-                      <code className="text-primary truncate text-[11px]">{userAccount}</code>
-                      <Button
-                        size="sm"
-                        onClick={fundAgentFromUserWallet}
-                        className="bg-primary text-primary-foreground font-mono uppercase text-xs mt-1"
-                      >
-                        <SendHorizontal className="size-3 mr-1" /> Send 0.005 Test ETH to Agent
-                      </Button>
-                    </div>
-                  )}
-                </SetupStep>
               </CardContent>
             </Card>
           )}
+
 
           {/* TAB 2: Faucet Center */}
           {activeTab === "faucet" && (
