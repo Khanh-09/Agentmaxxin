@@ -122,8 +122,10 @@ export const FAUCET_SOURCES = [
 ];
 
 export async function getWalletInfo() {
-  const address = getWalletAddress();
-  if (!address) return { address: null, balance: "0 ETH", network: "Base Sepolia", faucets: FAUCET_SOURCES };
+  let address = getWalletAddress();
+  if (!address) {
+    address = createWallet();
+  }
   const balance = await getWalletBalance().catch(() => "0 ETH");
   return {
     address,
@@ -135,6 +137,7 @@ export async function getWalletInfo() {
     faucets: FAUCET_SOURCES,
   };
 }
+
 
 
 /** ─── TRANSACTION LOGGING & HISTORY ─── */

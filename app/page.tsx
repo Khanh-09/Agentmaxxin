@@ -363,21 +363,18 @@ export default function Home() {
                 </SetupStep>
 
                 <SetupStep number={2} title="Agent Autonomous Web3 Wallet" done={Boolean(wallet?.address)} last>
-                  {wallet && !wallet.address && (
-                    <div className="flex flex-col gap-3">
-                      <p className="text-xs text-muted-foreground">
-                        The agent signs transactions and pays for APIs directly on Base Sepolia testnet.
-                      </p>
-                      <Button onClick={createWallet} disabled={creating} className="w-fit font-mono tracking-wider uppercase">
-                        <Wallet className="mr-1.5 size-4" /> {creating ? "Creating..." : "Create Agent Wallet"}
-                      </Button>
+                  {wallet?.address ? (
+                    <WalletDetails wallet={wallet} onRefresh={loadWallet} />
+                  ) : (
+                    <div className="flex items-center gap-2 p-3 border font-mono text-xs text-muted-foreground animate-pulse">
+                      <Wallet className="size-4 text-primary" /> Initializing Agent Base Sepolia Wallet...
                     </div>
                   )}
-                  {wallet?.address && <WalletDetails wallet={wallet} onRefresh={loadWallet} />}
                 </SetupStep>
               </CardContent>
             </Card>
           )}
+
 
 
           {/* TAB 2: Faucet Center */}
