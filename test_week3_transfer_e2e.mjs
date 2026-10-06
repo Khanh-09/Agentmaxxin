@@ -1,4 +1,3 @@
-// @ts-check
 import { isAddress, parseEther, formatEther } from "viem";
 
 const BASE_URL = "http://localhost:3000";
