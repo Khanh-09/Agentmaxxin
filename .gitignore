@@ -4,6 +4,7 @@ node_modules
 .agent-wallet.json
 .agent-memory.json
 .agent-runs.jsonl
+.agent-transactions.json
 next-env.d.ts
 *.tsbuildinfo
 .DS_Store

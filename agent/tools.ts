@@ -4,12 +4,15 @@
  * A tool is just a function the agent is allowed to call.
  * Gemini reads the `description` to decide WHEN to use it,
  * and `parameters` to know WHAT to pass in.
- *
- * Add your own tool: copy one of the objects below, change it,
- * and save. It shows up in the "Tools" list on the page.
  */
-import { getWalletAddress, getWalletBalance, payAndFetch } from "./wallet";
-import { getUserFacts, removeUserFact, saveUserFact } from "./memory";
+import {
+  executeOnChainTransfer,
+  getTransactionStatus,
+  getWalletInfo,
+  payAndFetch,
+  prepareTransferProposal,
+} from "./wallet";
+import { getUserFacts, saveUserFact } from "./memory";
 
 export type Tool = {
   name: string;
@@ -22,7 +25,95 @@ export type Tool = {
 };
 
 export const tools: Tool[] = [
-  // ─── 1. Paid Live Weather API (x402 Micropayment + Open-Meteo) ───
+  // ─── 1. Wallet Tool: Read Account, Balance & Network Info ───
+  {
+    name: "get_wallet_info",
+    category: "crypto",
+    description:
+      "Get the agent's on-chain wallet address, network (Base Sepolia testnet), current ETH balance, and Basescan explorer link.",
+    parameters: { type: "object", properties: {} },
+    run: async () => getWalletInfo(),
+  },
+
+  // ─── 2. Web3 Transfer Tool: Prepare Transfer & Check Balance (Human-in-the-Loop) ───
+  {
+    name: "prepare_transfer",
+    category: "crypto",
+    description:
+      "Check recipient address validity, balance sufficiency, estimate gas, and prepare a transfer proposal requiring user confirmation.",
+    parameters: {
+      type: "object",
+      properties: {
+        toAddress: {
+          type: "string",
+          description: "Recipient Ethereum address (0x... 42 characters) on Base Sepolia",
+        },
+        amountEth: {
+          type: "string",
+          description: "Amount of ETH to send (e.g. '0.001' or '0.05')",
+        },
+      },
+      required: ["toAddress", "amountEth"],
+    },
+    run: async ({ toAddress, amountEth }) => {
+      return prepareTransferProposal(toAddress, String(amountEth));
+    },
+  },
+
+  // ─── 3. Web3 Transfer Tool: Execute & Broadcast On-Chain Transfer ───
+  {
+    name: "confirm_transfer",
+    category: "crypto",
+    description:
+      "Execute the confirmed on-chain transaction on Base Sepolia testnet and broadcast it to the blockchain network.",
+    parameters: {
+      type: "object",
+      properties: {
+        toAddress: {
+          type: "string",
+          description: "Recipient Ethereum address (0x...)",
+        },
+        amountEth: {
+          type: "string",
+          description: "Amount of ETH to send",
+        },
+      },
+      required: ["toAddress", "amountEth"],
+    },
+    run: async ({ toAddress, amountEth }) => {
+      try {
+        return await executeOnChainTransfer(toAddress, String(amountEth));
+      } catch (err) {
+        return {
+          error: err instanceof Error ? err.message : String(err),
+          faucetUrl: "https://docs.base.org/base-chain/tools/network-faucets",
+        };
+      }
+    },
+  },
+
+  // ─── 4. Web3 Explorer: Check Transaction Receipt & Status ───
+  {
+    name: "get_transaction_status",
+    category: "crypto",
+    description:
+      "Check the status, block number, gas used, and confirmation receipt of any transaction hash on Base Sepolia.",
+    parameters: {
+      type: "object",
+      properties: {
+        txHash: {
+          type: "string",
+          description: "Transaction hash (0x... 66 characters)",
+        },
+      },
+      required: ["txHash"],
+    },
+    run: async ({ txHash }) => {
+      return getTransactionStatus(txHash);
+    },
+  },
+
+  // ─── 5. Paid Live Weather API (x402 Micropayment + Open-Meteo) ───
   {
     name: "get_weather",
     category: "paid",
@@ -43,7 +134,7 @@ export const tools: Tool[] = [
     },
   },
 
-  // ─── 2. Real-time Crypto Market Data (CoinGecko) ───
+  // ─── 6. Real-time Crypto Market Data (CoinGecko) ───
   {
     name: "get_crypto_price",
     category: "crypto",
@@ -106,224 +197,6 @@ export const tools: Tool[] = [
     },
   },
 
-  // ─── 3. Tavily & Web Search Tool (tavily-web skill) ───
-  {
-    name: "get_web_search",
-    category: "web",
-    description:
-      "Fetch live web search results, news, articles, and documentation URLs for any query from the internet.",
-    parameters: {
-      type: "object",
-      properties: {
-        query: {
-          type: "string",
-          description: "Search keywords or topic (e.g. 'Base L2 network' or 'Ethereum upgrades')",
-        },
-      },
-      required: ["query"],
-    },
-    run: async ({ query }) => {
-      // 1. Try Tavily API if key is provided
-      if (process.env.TAVILY_API_KEY) {
-        try {
-          const res = await fetch("https://api.tavily.com/search", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ api_key: process.env.TAVILY_API_KEY, query, max_results: 4 }),
-          });
-          const data = await res.json();
-          if (data.results && data.results.length > 0) {
-            return {
-              provider: "Tavily Search API",
-              query,
-              results: data.results.map((r: any) => ({
-                title: r.title,
-                url: r.url,
-                snippet: r.content,
-              })),
-            };
-          }
-        } catch {
-          // Fall back
-        }
-      }
-
-      // 2. DuckDuckGo HTML Web Search
-      try {
-        const res = await fetch(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`, {
-          headers: {
-            "User-Agent":
-              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-            Accept: "text/html,application/xhtml+xml",
-          },
-        });
-        const html = await res.text();
-        const results: { title: string; url: string; snippet: string }[] = [];
-        const resultBlocks = html.split('class="result__body"').slice(1);
-        for (const block of resultBlocks.slice(0, 4)) {
-          const titleMatch = block.match(/class="result__title"[\s\S]*?<a[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/i);
-          const snippetMatch = block.match(/class="result__snippet"[^>]*>([\s\S]*?)<\/a>/i);
-          if (titleMatch || snippetMatch) {
-            const rawUrl = titleMatch ? titleMatch[1] : "";
-            const cleanUrlMatch = rawUrl.match(/uddg=([^&]+)/);
-            const actualUrl = cleanUrlMatch ? decodeURIComponent(cleanUrlMatch[1]) : rawUrl;
-            const title = titleMatch ? titleMatch[2].replace(/<[^>]+>/g, "").trim() : "Search Result";
-            const snippet = snippetMatch ? snippetMatch[1].replace(/<[^>]+>/g, "").trim() : "";
-            if (title || snippet) {
-              results.push({ title, url: actualUrl, snippet });
-            }
-          }
-        }
-
-        if (results.length > 0) {
-          return {
-            query,
-            sourceCount: results.length,
-            results: results.slice(0, 3).map((r) => ({
-              title: r.title,
-              url: r.url,
-              snippet: r.snippet,
-            })),
-          };
-        }
-      } catch {
-        // Fall back to Wikipedia
-      }
-
-      // 3. Wikipedia Open Search & Knowledge Engine
-      try {
-        const url = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&utf8=&format=json`;
-        const res = await fetch(url, { headers: { "User-Agent": "AgentMaxx-App/1.0" } });
-        const data = await res.json();
-        const searchList = data.query?.search || [];
-        return {
-          query,
-          sourceCount: searchList.length,
-          results: searchList.slice(0, 3).map((s: any) => ({
-            title: s.title,
-            url: `https://en.wikipedia.org/wiki/${encodeURIComponent(s.title.replace(/ /g, "_"))}`,
-            snippet: s.snippet.replace(/<[^>]+>/g, ""),
-          })),
-        };
-      } catch (err) {
-        return { error: `Search failed: ${err instanceof Error ? err.message : String(err)}` };
-      }
-    },
-  },
-
-  // ─── 4. Web Page Scraper & Reader (firecrawl-scraper skill) ───
-  {
-    name: "extract_web_page",
-    category: "web",
-    description:
-      "Scrape, parse and extract readable text/markdown from any target webpage URL for deep analysis, summarization, or fact-checking.",
-    parameters: {
-      type: "object",
-      properties: {
-        url: {
-          type: "string",
-          description: "Full URL of the webpage to scrape and extract (e.g. 'https://docs.base.org')",
-        },
-      },
-      required: ["url"],
-    },
-    run: async ({ url }) => {
-      // 1. Try Firecrawl API if configured
-      if (process.env.FIRECRAWL_API_KEY) {
-        try {
-          const res = await fetch("https://api.firecrawl.dev/v1/scrape", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${process.env.FIRECRAWL_API_KEY}`,
-            },
-            body: JSON.stringify({ url, formats: ["markdown"] }),
-          });
-          const data = await res.json();
-          if (data.data?.markdown) {
-            return {
-              provider: "Firecrawl Scraper API",
-              url,
-              content: data.data.markdown.slice(0, 3000),
-            };
-          }
-        } catch {
-          // Fall back to direct fetch
-        }
-      }
-
-      // 2. Built-in HTML Parser & Text Extractor Fallback
-      try {
-        const res = await fetch(url, {
-          headers: {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-            Accept: "text/html,application/xhtml+xml",
-          },
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-        const html = await res.text();
-        const title = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1]?.trim() || "Page Content";
-        const cleanText = html
-          .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
-          .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "")
-          .replace(/<header\b[^<]*(?:(?!<\/header>)<[^<]*)*<\/header>/gi, "")
-          .replace(/<footer\b[^<]*(?:(?!<\/footer>)<[^<]*)*<\/footer>/gi, "")
-          .replace(/<nav\b[^<]*(?:(?!<\/nav>)<[^<]*)*<\/nav>/gi, "")
-          .replace(/<[^>]+>/g, " ")
-          .replace(/\s+/g, " ")
-          .trim();
-
-        return {
-          provider: "Agent Built-in Web Reader",
-          url,
-          title,
-          content: cleanText.slice(0, 2500) + (cleanText.length > 2500 ? "..." : ""),
-        };
-      } catch (err) {
-        return { error: `Failed to scrape URL '${url}': ${err instanceof Error ? err.message : String(err)}` };
-      }
-    },
-  },
-
-  // ─── 5. Conversation Memory: Remember Fact (conversation-memory skill) ───
-  {
-    name: "remember_user_fact",
-    category: "memory",
-    description:
-      "Save and persist user preferences, name, favorite tokens, custom rules, or facts across chat sessions.",
-    parameters: {
-      type: "object",
-      properties: {
-        key: {
-          type: "string",
-          description: "Identifier for the fact (e.g. 'user_name', 'favorite_crypto', 'target_currency')",
-        },
-        value: {
-          type: "string",
-          description: "The value or statement to remember (e.g. 'Alex', 'Solana', 'EUR')",
-        },
-      },
-      required: ["key", "value"],
-    },
-    run: async ({ key, value }) => {
-      const res = saveUserFact(key, value);
-      return { status: "saved", memoryKey: res.key, value: res.value };
-    },
-  },
-
-  // ─── 6. Conversation Memory: Read Memories (conversation-memory skill) ───
-  {
-    name: "get_user_memories",
-    category: "memory",
-    description: "Retrieve all stored user preferences and facts previously saved in memory.",
-    parameters: { type: "object", properties: {} },
-    run: async () => {
-      return {
-        memories: getUserFacts(),
-      };
-    },
-  },
-
   // ─── 7. Blockchain Network Health & Gas Inspector (Base Sepolia RPC) ───
   {
     name: "get_network_info",
@@ -374,7 +247,146 @@ export const tools: Tool[] = [
     },
   },
 
-  // ─── 8. Mathematical & Financial Computation Engine ───
+  // ─── 8. Tavily & Web Search Tool (tavily-web skill) ───
+  {
+    name: "get_web_search",
+    category: "web",
+    description:
+      "Fetch live web search results, news, articles, and documentation URLs for any query from the internet.",
+    parameters: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description: "Search keywords or topic (e.g. 'Base L2 network' or 'Ethereum upgrades')",
+        },
+      },
+      required: ["query"],
+    },
+    run: async ({ query }) => {
+      if (process.env.TAVILY_API_KEY) {
+        try {
+          const res = await fetch("https://api.tavily.com/search", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ api_key: process.env.TAVILY_API_KEY, query, max_results: 4 }),
+          });
+          const data = await res.json();
+          if (data.results && data.results.length > 0) {
+            return {
+              query,
+              sourceCount: data.results.length,
+              results: data.results.map((r: any) => ({
+                title: r.title,
+                url: r.url,
+                snippet: r.content,
+              })),
+            };
+          }
+        } catch {}
+      }
+
+      try {
+        const url = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&utf8=&format=json`;
+        const res = await fetch(url, { headers: { "User-Agent": "AgentMaxx-App/1.0" } });
+        const data = await res.json();
+        const searchList = data.query?.search || [];
+        return {
+          query,
+          sourceCount: searchList.length,
+          results: searchList.slice(0, 3).map((s: any) => ({
+            title: s.title,
+            url: `https://en.wikipedia.org/wiki/${encodeURIComponent(s.title.replace(/ /g, "_"))}`,
+            snippet: s.snippet.replace(/<[^>]+>/g, ""),
+          })),
+        };
+      } catch (err) {
+        return { error: `Search failed: ${err instanceof Error ? err.message : String(err)}` };
+      }
+    },
+  },
+
+  // ─── 9. Web Page Scraper & Reader (firecrawl-scraper skill) ───
+  {
+    name: "extract_web_page",
+    category: "web",
+    description:
+      "Scrape, parse and extract readable text/markdown from any target webpage URL for deep analysis, summarization, or fact-checking.",
+    parameters: {
+      type: "object",
+      properties: {
+        url: {
+          type: "string",
+          description: "Full URL of the webpage to scrape and extract (e.g. 'https://docs.base.org')",
+        },
+      },
+      required: ["url"],
+    },
+    run: async ({ url }) => {
+      try {
+        const res = await fetch(url, {
+          headers: {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+            Accept: "text/html,application/xhtml+xml",
+          },
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        const html = await res.text();
+        const title = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1]?.trim() || "Page Content";
+        const cleanText = html
+          .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+          .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "")
+          .replace(/<[^>]+>/g, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+
+        return {
+          url,
+          title,
+          content: cleanText.slice(0, 2500) + (cleanText.length > 2500 ? "..." : ""),
+        };
+      } catch (err) {
+        return { error: `Failed to scrape URL '${url}': ${err instanceof Error ? err.message : String(err)}` };
+      }
+    },
+  },
+
+  // ─── 10. Conversation Memory: Remember Fact (conversation-memory skill) ───
+  {
+    name: "remember_user_fact",
+    category: "memory",
+    description:
+      "Save and persist user preferences, name, favorite tokens, custom rules, or facts across chat sessions.",
+    parameters: {
+      type: "object",
+      properties: {
+        key: {
+          type: "string",
+          description: "Identifier for the fact (e.g. 'user_name', 'favorite_crypto', 'target_currency')",
+        },
+        value: {
+          type: "string",
+          description: "The value or statement to remember (e.g. 'Alex', 'Solana', 'EUR')",
+        },
+      },
+      required: ["key", "value"],
+    },
+    run: async ({ key, value }) => {
+      const res = saveUserFact(key, value);
+      return { status: "saved", memoryKey: res.key, value: res.value };
+    },
+  },
+
+  // ─── 11. Conversation Memory: Read Memories ───
+  {
+    name: "get_user_memories",
+    category: "memory",
+    description: "Retrieve all stored user preferences and facts previously saved in memory.",
+    parameters: { type: "object", properties: {} },
+    run: async () => ({ memories: getUserFacts() }),
+  },
+
+  // ─── 12. Mathematical & Financial Computation Engine ───
   {
     name: "calculate",
     category: "utility",
@@ -404,44 +416,7 @@ export const tools: Tool[] = [
     },
   },
 
-  // ─── 9. Agent Crypto Wallet Inspector ───
-  {
-    name: "get_my_wallet",
-    category: "crypto",
-    description:
-      "Read the agent's on-chain wallet address and current ETH balance on Base Sepolia testnet.",
-    parameters: { type: "object", properties: {} },
-    run: async () => ({
-      address: getWalletAddress(),
-      balance: await getWalletBalance(),
-      network: "Base Sepolia (testnet)",
-    }),
-  },
-
-  // ─── 10. Randomization & Dice Generator ───
-  {
-    name: "roll_dice",
-    category: "utility",
-    description: "Roll one or multiple dice with any specified number of sides (e.g. 6-sided, 20-sided, 100-sided).",
-    parameters: {
-      type: "object",
-      properties: {
-        sides: { type: "number", description: "How many sides the dice has. Default 6." },
-        count: { type: "number", description: "How many dice to roll. Default 1." },
-      },
-    },
-    run: async ({ sides = 6, count = 1 }) => {
-      const rolls: number[] = [];
-      const numRolls = Math.min(Math.max(1, count), 10);
-      for (let i = 0; i < numRolls; i++) {
-        rolls.push(Math.floor(Math.random() * sides) + 1);
-      }
-      const sum = rolls.reduce((a, b) => a + b, 0);
-      return { rolls, total: sum, sides, count: numRolls };
-    },
-  },
-
-  // ─── 11. Creative & Media Brief Generator (Creative Mode) ───
+  // ─── 13. Creative & Media Brief Generator (Creative Mode) ───
   {
     name: "generate_creative_brief",
     category: "creative",
@@ -456,7 +431,7 @@ export const tools: Tool[] = [
         },
         targetAudience: {
           type: "string",
-          description: "Target demographic or platform (e.g. 'YouTube Chillhop listeners', 'Web3 builders', 'Coffee shop work playlist')",
+          description: "Target demographic or platform (e.g. 'YouTube Chillhop listeners', 'Web3 builders')",
         },
         mood: {
           type: "string",
@@ -486,8 +461,27 @@ export const tools: Tool[] = [
       };
     },
   },
+
+  // ─── 14. Randomization & Dice Generator ───
+  {
+    name: "roll_dice",
+    category: "utility",
+    description: "Roll one or multiple dice with any specified number of sides (e.g. 6-sided, 20-sided, 100-sided).",
+    parameters: {
+      type: "object",
+      properties: {
+        sides: { type: "number", description: "How many sides the dice has. Default 6." },
+        count: { type: "number", description: "How many dice to roll. Default 1." },
+      },
+    },
+    run: async ({ sides = 6, count = 1 }) => {
+      const rolls: number[] = [];
+      const numRolls = Math.min(Math.max(1, count), 10);
+      for (let i = 0; i < numRolls; i++) {
+        rolls.push(Math.floor(Math.random() * sides) + 1);
+      }
+      const sum = rolls.reduce((a, b) => a + b, 0);
+      return { rolls, total: sum, sides, count: numRolls };
+    },
+  },
 ];
-
-
-
-
