@@ -1,16 +1,28 @@
+import { getAuthenticatedSession } from "@/agent/auth";
 import { getProjectById } from "@/agent/projects";
+import { listTasksByProject } from "@/agent/tasks";
 
-// GET /api/projects/[id]?userId=... -> Get specific project
+// GET /api/projects/[id] -> Get specific project + its task execution history
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const { searchParams } = new URL(req.url);
-    const userId = searchParams.get("userId") || "default_user";
-    const project = getProjectById(id, userId);
-    if (!project) {
+    const session = getAuthenticatedSession(req);
+
+    const { project, status } = getProjectById(id, session.userId);
+
+    if (status === "FORBIDDEN") {
+      return Response.json(
+        { error: "Access denied. You do not own this project." },
+        { status: 403 }
+      );
+    }
+    if (status === "NOT_FOUND" || !project) {
       return Response.json({ error: "Project not found." }, { status: 404 });
     }
-    return Response.json({ project });
+
+    const tasks = listTasksByProject(id, session.userId);
+
+    return Response.json({ project, tasks });
   } catch (err: any) {
     return Response.json({ error: err.message }, { status: 500 });
   }

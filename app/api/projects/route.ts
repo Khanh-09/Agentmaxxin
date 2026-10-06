@@ -1,42 +1,66 @@
+import { getAuthenticatedSession } from "@/agent/auth";
 import { listProjects, saveOrUpdateProject, deleteProject } from "@/agent/projects";
 
-// GET /api/projects?userId=... -> List all projects for user
+// GET /api/projects -> List all projects for authenticated session user
 export async function GET(req: Request) {
   try {
-    const { searchParams } = new URL(req.url);
-    const userId = searchParams.get("userId") || "default_user";
-    const projects = listProjects(userId);
-    return Response.json({ projects });
+    const session = getAuthenticatedSession(req);
+    const projects = listProjects(session.userId);
+    return Response.json({
+      projects,
+      session: { userId: session.userId, isWallet: session.isWallet, isAuthenticated: session.isAuthenticated },
+    });
   } catch (err: any) {
     return Response.json({ error: err.message }, { status: 500 });
   }
 }
 
-// POST /api/projects { id?, title?, objective?, status?, messages, summary?, userId? }
+// POST /api/projects { id?, title?, objective?, status?, messages, currentTaskId?, currentTaskStatus?, summary? }
 export async function POST(req: Request) {
   try {
+    const session = getAuthenticatedSession(req);
     const body = await req.json();
-    const userId = body.userId || "default_user";
+
     if (!body.messages || !Array.isArray(body.messages)) {
       return Response.json({ error: "Messages array is required." }, { status: 400 });
     }
-    const project = saveOrUpdateProject(body, userId);
-    return Response.json({ success: true, project });
+
+    const res = saveOrUpdateProject(body, session.userId);
+    if (res.status === "FORBIDDEN") {
+      return Response.json(
+        { error: "Access denied. You cannot modify a project owned by another user." },
+        { status: 403 }
+      );
+    }
+
+    return Response.json({ success: true, project: res.project });
   } catch (err: any) {
     return Response.json({ error: err.message }, { status: 500 });
   }
 }
 
-// DELETE /api/projects { id, userId? }
+// DELETE /api/projects { id }
 export async function DELETE(req: Request) {
   try {
+    const session = getAuthenticatedSession(req);
     const body = await req.json();
-    const userId = body.userId || "default_user";
+
     if (!body.id) {
       return Response.json({ error: "Project ID is required." }, { status: 400 });
     }
-    const success = deleteProject(body.id, userId);
-    return Response.json({ success });
+
+    const res = deleteProject(body.id, session.userId);
+    if (res.status === "FORBIDDEN") {
+      return Response.json(
+        { error: "Access denied. You cannot delete a project owned by another user." },
+        { status: 403 }
+      );
+    }
+    if (res.status === "NOT_FOUND") {
+      return Response.json({ error: "Project not found." }, { status: 404 });
+    }
+
+    return Response.json({ success: true });
   } catch (err: any) {
     return Response.json({ error: err.message }, { status: 500 });
   }

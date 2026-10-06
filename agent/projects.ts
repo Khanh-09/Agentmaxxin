@@ -3,14 +3,18 @@ import { getStoragePath } from "@/lib/storage";
 
 const PROJECTS_FILE = getStoragePath(".agent-projects.json");
 
+export type ProjectStatus = "ACTIVE" | "COMPLETED" | "PAUSED";
+
 export type ProjectTask = {
   id: string;
   userId: string;
   title: string;
   objective: string;
-  status: "ACTIVE" | "COMPLETED" | "PAUSED";
+  status: ProjectStatus;
   domain: string;
   messages: Array<{ role: "user" | "agent"; text: string; steps?: any[]; error?: boolean; domain?: string }>;
+  currentTaskId?: string;
+  currentTaskStatus?: "queued" | "running" | "succeeded" | "failed" | "cancelled";
   summary?: string;
   createdAt: string;
   updatedAt: string;
@@ -37,16 +41,30 @@ function writeProjects(projects: ProjectTask[]) {
   }
 }
 
-export function listProjects(userId = "default_user"): ProjectTask[] {
+export function listProjects(userId: string): ProjectTask[] {
   const all = readProjects();
+  const cleanUser = userId.toLowerCase().trim();
   return all
-    .filter((p) => !p.userId || p.userId === userId)
+    .filter((p) => p.userId && p.userId.toLowerCase().trim() === cleanUser)
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 }
 
-export function getProjectById(id: string, userId = "default_user"): ProjectTask | null {
+export function getProjectById(
+  id: string,
+  userId: string
+): { project: ProjectTask | null; status: "OK" | "NOT_FOUND" | "FORBIDDEN" } {
   const all = readProjects();
-  return all.find((p) => p.id === id && (!p.userId || p.userId === userId)) || null;
+  const project = all.find((p) => p.id === id);
+  if (!project) {
+    return { project: null, status: "NOT_FOUND" };
+  }
+
+  const cleanUser = userId.toLowerCase().trim();
+  if (project.userId.toLowerCase().trim() !== cleanUser) {
+    return { project: null, status: "FORBIDDEN" };
+  }
+
+  return { project, status: "OK" };
 }
 
 export function saveOrUpdateProject(
@@ -54,60 +72,87 @@ export function saveOrUpdateProject(
     id?: string;
     title?: string;
     objective?: string;
-    status?: "ACTIVE" | "COMPLETED" | "PAUSED";
+    status?: ProjectStatus;
     domain?: string;
     messages: Array<{ role: "user" | "agent"; text: string; steps?: any[]; error?: boolean; domain?: string }>;
+    currentTaskId?: string;
+    currentTaskStatus?: "queued" | "running" | "succeeded" | "failed" | "cancelled";
     summary?: string;
   },
-  userId = "default_user"
-): ProjectTask {
+  userId: string
+): { project: ProjectTask | null; status: "OK" | "FORBIDDEN" } {
   const all = readProjects();
+  const cleanUser = userId.toLowerCase().trim();
   const existingIdx = data.id ? all.findIndex((p) => p.id === data.id) : -1;
 
-  const firstUserMsg = data.messages.find((m) => m.role === "user")?.text || "Dự án mới";
-  const title = data.title || (firstUserMsg.length > 45 ? firstUserMsg.slice(0, 45) + "..." : firstUserMsg);
-  const objective = data.objective || firstUserMsg;
-  const domain = data.domain || data.messages.find((m) => m.domain)?.domain || "general";
-
   if (existingIdx >= 0) {
+    const existing = all[existingIdx];
+    if (existing.userId.toLowerCase().trim() !== cleanUser) {
+      return { project: null, status: "FORBIDDEN" };
+    }
+
+    const firstUserMsg = data.messages.find((m) => m.role === "user")?.text || existing.title;
+    const title = data.title || existing.title || (firstUserMsg.length > 45 ? firstUserMsg.slice(0, 45) + "..." : firstUserMsg);
+    const objective = data.objective || existing.objective || firstUserMsg;
+    const domain = data.domain || data.messages.find((m) => m.domain)?.domain || existing.domain || "general";
+
     const updated: ProjectTask = {
-      ...all[existingIdx],
+      ...existing,
       title,
       objective,
-      status: data.status || all[existingIdx].status || "ACTIVE",
+      status: data.status || existing.status || "ACTIVE",
       domain,
       messages: data.messages,
-      summary: data.summary || all[existingIdx].summary,
+      currentTaskId: data.currentTaskId || existing.currentTaskId,
+      currentTaskStatus: data.currentTaskStatus || existing.currentTaskStatus,
+      summary: data.summary || existing.summary,
       updatedAt: new Date().toISOString(),
     };
     all[existingIdx] = updated;
     writeProjects(all);
-    return updated;
+    return { project: updated, status: "OK" };
   } else {
+    const firstUserMsg = data.messages.find((m) => m.role === "user")?.text || "Dự án mới";
+    const title = data.title || (firstUserMsg.length > 45 ? firstUserMsg.slice(0, 45) + "..." : firstUserMsg);
+    const objective = data.objective || firstUserMsg;
+    const domain = data.domain || data.messages.find((m) => m.domain)?.domain || "general";
+
     const newProj: ProjectTask = {
       id: data.id || `proj_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-      userId,
+      userId: cleanUser,
       title,
       objective,
       status: data.status || "ACTIVE",
       domain,
       messages: data.messages,
+      currentTaskId: data.currentTaskId,
+      currentTaskStatus: data.currentTaskStatus || "queued",
       summary: data.summary,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
     all.unshift(newProj);
     writeProjects(all);
-    return newProj;
+    return { project: newProj, status: "OK" };
   }
 }
 
-export function deleteProject(id: string, userId = "default_user"): boolean {
+export function deleteProject(
+  id: string,
+  userId: string
+): { success: boolean; status: "OK" | "NOT_FOUND" | "FORBIDDEN" } {
   const all = readProjects();
-  const filtered = all.filter((p) => !(p.id === id && (!p.userId || p.userId === userId)));
-  if (filtered.length !== all.length) {
-    writeProjects(filtered);
-    return true;
+  const project = all.find((p) => p.id === id);
+  if (!project) {
+    return { success: false, status: "NOT_FOUND" };
   }
-  return false;
+
+  const cleanUser = userId.toLowerCase().trim();
+  if (project.userId.toLowerCase().trim() !== cleanUser) {
+    return { success: false, status: "FORBIDDEN" };
+  }
+
+  const filtered = all.filter((p) => p.id !== id);
+  writeProjects(filtered);
+  return { success: true, status: "OK" };
 }

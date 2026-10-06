@@ -8,6 +8,7 @@ import {
   Check,
   ChevronRight,
   CircleAlert,
+  Clock,
   Code2,
   Coins,
   Copy,
@@ -22,12 +23,14 @@ import {
   History,
   Layers,
   LineChart,
+  Lock,
   Plus,
   RefreshCw,
   RotateCcw,
   Save,
   Search,
   SendHorizontal,
+  ShieldAlert,
   ShieldCheck,
   Sparkles,
   Square,
@@ -106,9 +109,29 @@ type ProjectTask = {
   status: "ACTIVE" | "COMPLETED" | "PAUSED";
   domain: string;
   messages: Message[];
+  currentTaskId?: string;
+  currentTaskStatus?: "queued" | "running" | "succeeded" | "failed" | "cancelled";
   summary?: string;
   createdAt: string;
   updatedAt: string;
+};
+
+type TaskStatus = "queued" | "running" | "succeeded" | "failed" | "cancelled";
+
+type AgentTask = {
+  id: string;
+  projectId: string;
+  userId: string;
+  objective: string;
+  status: TaskStatus;
+  idempotencyKey?: string;
+  steps?: Array<{ name: string; status: "pending" | "running" | "completed" | "failed"; detail?: string }>;
+  result?: string;
+  error?: string;
+  createdAt: string;
+  startedAt?: string;
+  completedAt?: string;
+  durationMs?: number;
 };
 
 // 5 Core Standard Sample Tasks + Specialist Presets
@@ -164,23 +187,51 @@ export default function Home() {
   const [projects, setProjects] = useState<ProjectTask[]>([]);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
   const [currentProjectStatus, setCurrentProjectStatus] = useState<"ACTIVE" | "COMPLETED" | "PAUSED">("ACTIVE");
+  const [currentTask, setCurrentTask] = useState<AgentTask | null>(null);
+  const [sessionToken, setSessionToken] = useState<string>("");
+  const [sessionUser, setSessionUser] = useState<string>("guest_default");
   const [userAccount, setUserAccount] = useState<string | null>(null);
   const [userBalance, setUserBalance] = useState<string | null>(null);
   const [connectingUser, setConnectingUser] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
-  const [activeTab, setActiveTab] = useState<"workspace" | "projects" | "memory" | "setup" | "faucet" | "tools" | "knowledge">("workspace");
+  const [activeTab, setActiveTab] = useState<"workspace" | "projects" | "memory" | "setup" | "faucet" | "tools" | "knowledge" | "security">("workspace");
   const [newMemoryKey, setNewMemoryKey] = useState("");
   const [newMemoryVal, setNewMemoryVal] = useState("");
   const [uploadFileText, setUploadFileText] = useState("");
   const [uploadFileName, setUploadFileName] = useState("my-notes.md");
   const [uploading, setUploading] = useState(false);
   const [uploadMsg, setUploadMsg] = useState<string | null>(null);
+  const [securityTestResult, setSecurityTestResult] = useState<any>(null);
+  const [testingSecurity, setTestingSecurity] = useState(false);
 
-  const currentUserId = userAccount || "default_user";
   const abortControllerRef = useRef<AbortController | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  const getAuthHeaders = (tok = sessionToken) => ({
+    "Content-Type": "application/json",
+    ...(tok ? { Authorization: `Bearer ${tok}` } : {}),
+  });
+
+  const initSession = async (walletAddress?: string) => {
+    try {
+      const res = await fetch("/api/auth/session", {
+        method: walletAddress ? "POST" : "GET",
+        headers: { "Content-Type": "application/json" },
+        body: walletAddress ? JSON.stringify({ address: walletAddress }) : undefined,
+      });
+      const data = await res.json();
+      if (data.token) {
+        setSessionToken(data.token);
+        setSessionUser(data.userId);
+        return data.token;
+      }
+    } catch (err) {
+      console.error("Session init failed:", err);
+    }
+    return null;
+  };
 
   const loadWallet = () =>
     fetch("/api/wallet")
@@ -200,40 +251,48 @@ export default function Home() {
       .then((d) => setMemories(d.memories || []))
       .catch(() => null);
 
-  const loadProjects = () =>
-    fetch(`/api/projects?userId=${encodeURIComponent(currentUserId)}`)
+  const loadProjects = (tok = sessionToken) => {
+    fetch("/api/projects", { headers: getAuthHeaders(tok) })
       .then((r) => r.json())
-      .then((d) => setProjects(d.projects || []))
+      .then((d) => {
+        if (d.projects) setProjects(d.projects);
+      })
       .catch(() => null);
+  };
 
   useEffect(() => {
-    fetch("/api/agent").then((r) => r.json()).then(setStatus);
-    loadWallet();
-    loadTraining();
-    loadMemories();
-    loadProjects();
+    initSession().then((tok) => {
+      fetch("/api/agent").then((r) => r.json()).then(setStatus);
+      loadWallet();
+      loadTraining();
+      loadMemories();
+      if (tok) loadProjects(tok);
+    });
   }, []);
-
-  useEffect(() => {
-    loadProjects();
-  }, [userAccount]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, thinking]);
 
   /** Auto-save or update the active project session */
-  async function autoSaveProject(msgs: Message[], projId: string | null = currentProjectId, stat: "ACTIVE" | "COMPLETED" | "PAUSED" = currentProjectStatus) {
+  async function autoSaveProject(
+    msgs: Message[],
+    projId: string | null = currentProjectId,
+    stat: "ACTIVE" | "COMPLETED" | "PAUSED" = currentProjectStatus,
+    activeTaskId?: string,
+    activeTaskStat?: TaskStatus
+  ) {
     if (msgs.length === 0) return;
     try {
       const res = await fetch("/api/projects", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           id: projId || undefined,
-          userId: currentUserId,
           status: stat,
           messages: msgs.filter((m) => !m.error),
+          currentTaskId: activeTaskId || currentTask?.id,
+          currentTaskStatus: activeTaskStat || currentTask?.status,
         }),
       });
       const data = await res.json();
@@ -250,23 +309,53 @@ export default function Home() {
     setMessages([]);
     setCurrentProjectId(null);
     setCurrentProjectStatus("ACTIVE");
+    setCurrentTask(null);
     setInput("");
   }
 
-  function resumeProject(p: ProjectTask) {
-    setMessages(p.messages || []);
-    setCurrentProjectId(p.id);
-    setCurrentProjectStatus(p.status || "ACTIVE");
+  async function resumeProject(p: ProjectTask) {
+    try {
+      const res = await fetch(`/api/projects/${p.id}`, { headers: getAuthHeaders() });
+      const data = await res.json();
+      if (res.status === 403) {
+        alert("⛔ Truy cập bị từ chối: Dự án này thuộc quyền sở hữu của người dùng khác.");
+        return;
+      }
+      if (data.project) {
+        setMessages(data.project.messages || []);
+        setCurrentProjectId(data.project.id);
+        setCurrentProjectStatus(data.project.status || "ACTIVE");
+        if (data.tasks && data.tasks.length > 0) {
+          setCurrentTask(data.tasks[0]);
+        } else if (data.project.currentTaskId) {
+          setCurrentTask({
+            id: data.project.currentTaskId,
+            projectId: data.project.id,
+            userId: data.project.userId,
+            objective: data.project.objective,
+            status: data.project.currentTaskStatus || "succeeded",
+            createdAt: data.project.createdAt,
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Failed to resume project:", err);
+    }
   }
 
   async function deleteProjectItem(id: string, e: React.MouseEvent) {
     e.stopPropagation();
     try {
-      await fetch("/api/projects", {
+      const res = await fetch("/api/projects", {
         method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, userId: currentUserId }),
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ id }),
       });
+      const data = await res.json();
+      if (res.status === 403) {
+        alert("⛔ Truy cập bị từ chối: Không thể xóa dự án của người dùng khác.");
+        return;
+      }
       if (currentProjectId === id) {
         startNewTask();
       }
@@ -296,6 +385,11 @@ export default function Home() {
       if (accounts && accounts[0]) {
         const acc = accounts[0];
         setUserAccount(acc);
+        const newTok = await initSession(acc);
+        if (newTok) {
+          loadProjects(newTok);
+        }
+
         try {
           await eth.request({
             method: "wallet_switchEthereumChain",
@@ -333,6 +427,15 @@ export default function Home() {
     setConnectingUser(false);
   }
 
+  async function disconnectWallet() {
+    setUserAccount(null);
+    setUserBalance(null);
+    const guestTok = await initSession();
+    if (guestTok) {
+      loadProjects(guestTok);
+    }
+  }
+
   async function send(text: string) {
     if (!text.trim() || thinking) return;
     const history: Message[] = [...messages, { role: "user", text }];
@@ -340,14 +443,33 @@ export default function Home() {
     setInput("");
     setThinking(true);
 
+    const idempotencyKey = `idem_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const effectiveProjId = currentProjectId || `proj_${Date.now()}`;
+
+    const initialTask: AgentTask = {
+      id: `task_${Date.now()}`,
+      projectId: effectiveProjId,
+      userId: sessionUser,
+      objective: text,
+      status: "running",
+      idempotencyKey,
+      startedAt: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+    };
+    setCurrentTask(initialTask);
+
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
     try {
       const res = await fetch("/api/agent", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: history.filter((m) => !m.error).map(({ role, text }) => ({ role, text })) }),
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          messages: history.filter((m) => !m.error).map(({ role, text }) => ({ role, text })),
+          projectId: effectiveProjId,
+          idempotencyKey,
+        }),
         signal: controller.signal,
       });
       const data = await res.json();
@@ -358,7 +480,14 @@ export default function Home() {
           : { role: "agent", text: data.answer, steps: data.steps, domain: data.domain },
       ];
       setMessages(updatedMessages);
-      autoSaveProject(updatedMessages);
+
+      if (data.task) {
+        setCurrentTask(data.task);
+        autoSaveProject(updatedMessages, data.projectId || effectiveProjId, currentProjectStatus, data.task.id, data.task.status);
+      } else {
+        autoSaveProject(updatedMessages, effectiveProjId, currentProjectStatus);
+      }
+
       loadWallet();
       loadTraining();
       loadMemories();
@@ -369,22 +498,37 @@ export default function Home() {
           { role: "agent", text: "⏹️ Tác vụ đã được hủy bởi người dùng.", error: false },
         ];
         setMessages(updatedMessages);
-        autoSaveProject(updatedMessages);
+        if (currentTask) {
+          const cancelledTask: AgentTask = { ...currentTask, status: "cancelled", completedAt: new Date().toISOString() };
+          setCurrentTask(cancelledTask);
+          autoSaveProject(updatedMessages, effectiveProjId, currentProjectStatus, cancelledTask.id, "cancelled");
+        }
       } else {
         setMessages((m) => [
           ...m,
           { role: "agent", text: "Could not reach the server. Is `npm run dev` still running?", error: true },
         ]);
+        if (currentTask) {
+          setCurrentTask({ ...currentTask, status: "failed", error: String(err) });
+        }
       }
     }
     setThinking(false);
     abortControllerRef.current = null;
   }
 
-  function abortCurrentTask() {
+  async function abortCurrentTask() {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
+    }
+    if (currentTask?.id) {
+      try {
+        await fetch(`/api/tasks/${currentTask.id}/cancel`, {
+          method: "POST",
+          headers: getAuthHeaders(),
+        });
+      } catch {}
     }
     setThinking(false);
   }
@@ -401,7 +545,7 @@ export default function Home() {
     if (!newMemoryKey.trim() || !newMemoryVal.trim()) return;
     await fetch("/api/memory", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: getAuthHeaders(),
       body: JSON.stringify({ key: newMemoryKey, value: newMemoryVal }),
     });
     setNewMemoryKey("");
@@ -412,7 +556,7 @@ export default function Home() {
   async function handleDeleteMemory(key: string) {
     await fetch("/api/memory", {
       method: "DELETE",
-      headers: { "Content-Type": "application/json" },
+      headers: getAuthHeaders(),
       body: JSON.stringify({ key }),
     });
     loadMemories();
@@ -445,6 +589,72 @@ export default function Home() {
     setUploading(false);
   }
 
+  /** Run Access Control & Security Tests */
+  async function runAccessControlTest(testType: "user_b_cross_access" | "spoof_client_address") {
+    setTestingSecurity(true);
+    setSecurityTestResult(null);
+    try {
+      if (testType === "user_b_cross_access") {
+        const targetProjId = currentProjectId || projects[0]?.id || "proj_sample_alpha";
+        // Create an untrusted/different user token for User B
+        const userBRes = await fetch("/api/auth/session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ guestId: "attacker_user_b" }),
+        });
+        const userBData = await userBRes.json();
+
+        // Attempt to fetch User A's project using User B's token
+        const attackRes = await fetch(`/api/projects/${targetProjId}`, {
+          headers: { Authorization: `Bearer ${userBData.token}` },
+        });
+        const attackJson = await attackRes.json();
+
+        setSecurityTestResult({
+          title: "Kiểm tra 1: User B truy cập trái phép Dự án của User A",
+          targetProjectId: targetProjId,
+          userB: userBData.userId,
+          httpStatus: attackRes.status,
+          responseBody: attackJson,
+          passed: attackRes.status === 403 || attackRes.status === 404,
+          explanation:
+            attackRes.status === 403
+              ? "✅ Backend đã chặn thành công với mã HTTP 403 Forbidden! User B không thể đọc dự án của User A."
+              : attackRes.status === 404
+              ? "✅ Dự án không tồn tại hoặc đã được cách ly hoàn toàn (HTTP 404)."
+              : "❌ LỖI: Server trả về trạng thái không mong muốn.",
+        });
+      } else if (testType === "spoof_client_address") {
+        // Attempt to pass arbitrary spoofed userId in POST body without valid signed session
+        const spoofedRes = await fetch("/api/projects", {
+          method: "POST",
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            userId: "0xSPOOFED_VICTIM_ADDRESS_000000000000000000",
+            messages: [{ role: "user", text: "Spoofed attack payload" }],
+          }),
+        });
+        const spoofedJson = await spoofedRes.json();
+
+        setSecurityTestResult({
+          title: "Kiểm tra 2: Client tự gửi User Address giả mạo",
+          clientSentUserId: "0xSPOOFED_VICTIM_ADDRESS_000000000000000000",
+          actualAssignedUserId: spoofedJson.project?.userId,
+          httpStatus: spoofedRes.status,
+          responseBody: spoofedJson,
+          passed: spoofedJson.project?.userId === sessionUser,
+          explanation:
+            spoofedJson.project?.userId === sessionUser
+              ? `✅ Backend đã phớt lờ userId do client gửi và gán chính xác theo phiên xác thực HMAC (${sessionUser}).`
+              : "❌ LỖI: Server chấp nhận userId từ client.",
+        });
+      }
+    } catch (err: any) {
+      setSecurityTestResult({ error: err.message });
+    }
+    setTestingSecurity(false);
+  }
+
   const ready = Boolean(status?.hasApiKey);
 
   return (
@@ -454,7 +664,7 @@ export default function Home() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Label>
             <img src="/risein-logo.svg" alt="Rise In" className="mr-3 h-5 w-auto" />
-            <span className="text-foreground">/ AgentMaxx</span>&nbsp;Research & Planning Cognitive Engine
+            <span className="text-foreground">/ AgentMaxx</span>&nbsp;Research & Stateful Planning Cognitive Engine
           </Label>
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline" className="font-mono text-xs uppercase hidden sm:inline-flex">
@@ -464,7 +674,7 @@ export default function Home() {
               {status?.model ?? "gemini-3.5-flash-lite"}
             </Badge>
 
-            {/* Connect MetaMask / Rabby User Wallet */}
+            {/* Session / Wallet Badge */}
             {!userAccount ? (
               <Button
                 variant="outline"
@@ -483,7 +693,7 @@ export default function Home() {
                 <span className="text-border hidden sm:inline">|</span>
                 <code className="text-primary font-semibold text-[11px]">{userAccount.slice(0, 6)}...{userAccount.slice(-4)}</code>
                 <button
-                  onClick={() => setUserAccount(null)}
+                  onClick={disconnectWallet}
                   title="Disconnect Wallet"
                   className="text-muted-foreground hover:text-destructive text-[11px] ml-1 px-1"
                 >
@@ -499,7 +709,7 @@ export default function Home() {
               AgentMaxx <span className="text-primary">Cognitive Pro.</span>
             </h1>
             <p className="mt-1 max-w-3xl text-sm text-muted-foreground leading-relaxed">
-              Agent Nghiên cứu & Lập kế hoạch có nguồn minh bạch, quản lý dự án & tác vụ bền vững, RAG tài liệu, quản lý bộ nhớ dài hạn, và thực thi an toàn trên Base Sepolia L2.
+              Agent Nghiên cứu & Lập kế hoạch có nguồn minh bạch, quản lý dự án & tác vụ theo trạng thái (queued, running, succeeded, failed, cancelled), kiểm tra quyền sở hữu backend, và thực thi an toàn trên Base Sepolia L2.
             </p>
           </div>
         </div>
@@ -509,7 +719,7 @@ export default function Home() {
         {/* Left column: Navigation Tabs & Detail Cards */}
         <aside className="flex flex-col gap-4">
           {/* Tab Selection Bar */}
-          <div className="grid grid-cols-7 gap-1 p-1 bg-muted/60 border font-mono text-[10px] uppercase">
+          <div className="grid grid-cols-8 gap-1 p-1 bg-muted/60 border font-mono text-[9px] uppercase">
             <button
               onClick={() => setActiveTab("workspace")}
               className={cn("py-2 px-0.5 text-center transition-colors font-semibold", activeTab === "workspace" ? "bg-background shadow text-primary" : "text-muted-foreground hover:text-foreground")}
@@ -521,6 +731,12 @@ export default function Home() {
               className={cn("py-2 px-0.5 text-center transition-colors font-semibold", activeTab === "projects" ? "bg-background shadow text-primary" : "text-muted-foreground hover:text-foreground")}
             >
               Saved
+            </button>
+            <button
+              onClick={() => setActiveTab("security")}
+              className={cn("py-2 px-0.5 text-center transition-colors font-semibold flex items-center justify-center gap-0.5", activeTab === "security" ? "bg-background shadow text-rose-500" : "text-muted-foreground hover:text-foreground")}
+            >
+              <ShieldAlert className="size-2.5" /> Auth
             </button>
             <button
               onClick={() => setActiveTab("memory")}
@@ -633,14 +849,14 @@ export default function Home() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <SectionTitle num="SAVED" title="Dự Án & Lịch Sử Tác Vụ" />
-                <Button variant="ghost" size="icon-xs" onClick={loadProjects} aria-label="Refresh projects">
+                <Button variant="ghost" size="icon-xs" onClick={() => loadProjects()} aria-label="Refresh projects">
                   <RefreshCw className="size-3.5" />
                 </Button>
               </CardHeader>
               <CardContent className="flex flex-col gap-3 font-mono text-xs max-h-[520px] overflow-y-auto pr-1">
                 <div className="flex items-center justify-between pb-1 border-b">
                   <span className="text-muted-foreground text-[11px]">
-                    User ID: <code className="text-primary">{currentUserId === "default_user" ? "Local Default" : `${currentUserId.slice(0, 6)}...`}</code>
+                    User ID: <code className="text-primary font-semibold">{sessionUser.slice(0, 10)}...</code>
                   </span>
                   <Button
                     variant="outline"
@@ -654,7 +870,7 @@ export default function Home() {
 
                 {projects.length === 0 ? (
                   <p className="text-muted-foreground text-[11px] italic p-3 border text-center">
-                    Chưa có dự án nào được lưu. Các tác vụ chat sẽ tự động lưu lại vào đây.
+                    Chưa có dự án nào được lưu cho tài khoản này.
                   </p>
                 ) : (
                   projects.map((p) => (
@@ -693,11 +909,73 @@ export default function Home() {
                       </div>
                       <p className="text-muted-foreground text-[11px] font-sans line-clamp-1">{p.objective}</p>
                       <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1 border-t">
-                        <span>{p.messages?.length ?? 0} tin nhắn</span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="size-2.5" /> {p.currentTaskStatus ? `Task: ${p.currentTaskStatus}` : `${p.messages?.length ?? 0} tin nhắn`}
+                        </span>
                         <span>{new Date(p.updatedAt).toLocaleString()}</span>
                       </div>
                     </div>
                   ))
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* TAB: SECURITY & ACCESS CONTROL TEST SUITE */}
+          {activeTab === "security" && (
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <SectionTitle num="SEC" title="Kiểm Tra Quyền Truy Cập (Auth Test)" />
+              </CardHeader>
+              <CardContent className="flex flex-col gap-3 font-mono text-xs max-h-[520px] overflow-y-auto pr-1">
+                <div className="p-2.5 border border-primary/30 bg-primary/5 text-muted-foreground leading-relaxed text-[11px]">
+                  🛡️ <strong>Chính sách Bảo mật:</strong> Backend kiểm tra phiên mã hóa HMAC-SHA256. Mọi yêu cầu đọc/sửa/xóa đều bắt buộc xác thực quyền sở hữu; địa chỉ gửi từ client bị phớt lờ nếu không khớp chữ ký phiên.
+                </div>
+
+                <div className="flex flex-col gap-2 pt-1">
+                  <p className="font-bold text-[11px] uppercase tracking-wider text-muted-foreground">
+                    Chạy Thử Nghiệm Tấn Công & Xác Thực:
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => runAccessControlTest("user_b_cross_access")}
+                    disabled={testingSecurity}
+                    className="h-8 text-xs font-mono justify-start text-left border-rose-500/40 text-rose-500 hover:bg-rose-500/10"
+                  >
+                    1. Thử User B truy cập Dự án User A (Test 403 Forbidden)
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => runAccessControlTest("spoof_client_address")}
+                    disabled={testingSecurity}
+                    className="h-8 text-xs font-mono justify-start text-left border-amber-500/40 text-amber-500 hover:bg-amber-500/10"
+                  >
+                    2. Thử Client tự gửi User Address giả mạo
+                  </Button>
+                </div>
+
+                {securityTestResult && (
+                  <div className="mt-3 p-3 border bg-background flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-xs text-foreground">{securityTestResult.title}</span>
+                      <Badge
+                        variant={securityTestResult.passed ? "secondary" : "destructive"}
+                        className={cn(
+                          "text-[10px] uppercase font-mono",
+                          securityTestResult.passed && "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                        )}
+                      >
+                        {securityTestResult.passed ? "PASSED (ĐẠT)" : "FAILED"}
+                      </Badge>
+                    </div>
+                    <p className="text-[11px] text-primary font-sans">{securityTestResult.explanation}</p>
+                    <div className="bg-muted/40 p-2 text-[10px] border overflow-x-auto leading-tight">
+                      <div>HTTP Status: <strong>{securityTestResult.httpStatus}</strong></div>
+                      <pre className="mt-1">{JSON.stringify(securityTestResult.responseBody, null, 2)}</pre>
+                    </div>
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -713,7 +991,6 @@ export default function Home() {
                 </Button>
               </CardHeader>
               <CardContent className="flex flex-col gap-4 font-mono text-xs max-h-[520px] overflow-y-auto pr-1">
-                {/* Add New Memory Form */}
                 <form onSubmit={handleAddMemory} className="flex flex-col gap-2 p-3 border bg-muted/20">
                   <span className="font-bold text-[11px] uppercase text-muted-foreground flex items-center gap-1">
                     <Plus className="size-3" /> Thêm Tùy Chọn / Profile Mới:
@@ -735,7 +1012,6 @@ export default function Home() {
                   </Button>
                 </form>
 
-                {/* Stored Memories List */}
                 <div className="flex flex-col gap-2">
                   <p className="font-bold text-[11px] uppercase tracking-wider text-muted-foreground">
                     Bộ nhớ đã lưu ({memories.length}):
@@ -898,35 +1174,15 @@ export default function Home() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <SectionTitle num="07" title="RAG & Knowledge Base" />
-                <Button variant="ghost" size="icon-xs" onClick={loadTraining} aria-label="Refresh training">
-                  <RefreshCw className="size-3.5" />
-                </Button>
               </CardHeader>
-              <CardContent className="flex flex-col gap-3.5 max-h-[520px] overflow-y-auto pr-1 font-mono text-xs">
-                {training?.metrics && (
-                  <div className="grid grid-cols-2 gap-2 border p-2.5 bg-muted/20">
-                    <div>
-                      <span className="text-muted-foreground block text-[10px]">Total Runs:</span>
-                      <span className="font-bold text-foreground">{training.metrics.totalRuns}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[10px]">Pass Rate:</span>
-                      <span className="font-bold text-emerald-500">{training.metrics.overallSuccessRate}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[10px]">Avg Groundedness:</span>
-                      <span className="font-bold text-primary">{training.metrics.avgGroundednessScore}/100</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[10px]">Few-Shot Exemplars:</span>
-                      <span className="font-bold text-amber-500">{training.metrics.exemplarsCount} Traces</span>
-                    </div>
-                  </div>
-                )}
-
+              <CardContent className="flex flex-col gap-3 max-h-[520px] overflow-y-auto pr-1 font-mono text-xs">
+                <div className="flex items-center justify-between pb-1 border-b">
+                  <span>Chỉ mục chunks đã lập:</span>
+                  <Badge variant="secondary">{training?.knowledgeCount ?? 0} Chunks</Badge>
+                </div>
                 <div className="flex flex-col gap-2">
                   <p className="font-bold text-[11px] uppercase tracking-wider text-muted-foreground">
-                    Ingested Knowledge Base Items ({training?.knowledgeCount ?? 0}):
+                    Tài Liệu Tri Thức Sẵn Sàng Truy Vấn:
                   </p>
                   {training?.knowledgeBase.map((k) => (
                     <div key={k.id} className="border p-2 bg-background flex flex-col gap-1">
@@ -947,20 +1203,37 @@ export default function Home() {
           )}
         </aside>
 
-        {/* Right column: Chat & Interactive Workbench */}
+        {/* Right column: Chat & Interactive Stateful Workbench */}
         <Card className="flex flex-col overflow-hidden border">
           <CardHeader className="border-b px-4 py-3 bg-muted/30 flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2 font-mono text-xs">
+            <div className="flex flex-wrap items-center gap-2 font-mono text-xs">
               <Terminal className="size-4 text-primary" />
-              <span className="font-bold text-foreground uppercase">AgentMaxx Interactive Terminal</span>
+              <span className="font-bold text-foreground uppercase">AgentMaxx Stateful Terminal</span>
               {currentProjectId && (
                 <Badge variant="outline" className="text-[10px] text-muted-foreground">
-                  Session ID: {currentProjectId.slice(-6)}
+                  Proj: {currentProjectId.slice(-6)}
+                </Badge>
+              )}
+              {currentTask && (
+                <Badge
+                  variant="secondary"
+                  className={cn(
+                    "text-[10px] uppercase font-mono px-2 py-0.5 flex items-center gap-1",
+                    currentTask.status === "running" && "bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30 animate-pulse",
+                    currentTask.status === "succeeded" && "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30",
+                    currentTask.status === "failed" && "bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30",
+                    currentTask.status === "queued" && "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30",
+                    currentTask.status === "cancelled" && "bg-slate-500/15 text-slate-600 dark:text-slate-400 border border-slate-500/30"
+                  )}
+                >
+                  <span className="size-1.5 rounded-full bg-current" />
+                  Task: {currentTask.status}
+                  {currentTask.durationMs ? ` (${(currentTask.durationMs / 1000).toFixed(2)}s)` : ""}
                 </Badge>
               )}
             </div>
             <div className="flex items-center gap-2">
-              {/* Task Status Selector */}
+              {/* Project Status Selector */}
               <div className="flex items-center gap-1 border bg-background px-2 py-0.5 font-mono text-xs">
                 <span className="text-muted-foreground text-[10px]">Status:</span>
                 <select
@@ -986,13 +1259,13 @@ export default function Home() {
             </div>
           </CardHeader>
 
-          {/* Real-time Progress Bar when Thinking */}
+          {/* Real-time Progress Bar & Cancellation */}
           {thinking && (
             <div className="flex flex-col gap-1.5 p-3 bg-primary/5 border-b border-primary/20 text-xs font-mono">
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-2 text-primary font-bold text-xs">
                   <span className="size-2 rounded-full bg-primary animate-ping" />
-                  Đang thực thi Workflow nghiên cứu & lập kế hoạch có nguồn...
+                  Đang thực thi tác vụ: {currentTask?.id ?? "task_running"}...
                 </span>
                 <Button
                   variant="outline"
@@ -1018,7 +1291,7 @@ export default function Home() {
                 <div className="flex flex-col gap-4 py-4 font-mono text-xs">
                   <div className="border border-dashed p-4 bg-muted/20">
                     <p className="font-bold text-foreground uppercase text-xs">
-                      🌟 AgentMaxx Research & Multi-Domain Engine
+                      🌟 AgentMaxx Research & Multi-Domain Stateful Engine
                     </p>
                     <p className="mt-1 text-muted-foreground leading-relaxed text-xs">
                       Chọn nhanh một trong các tác vụ nghiên cứu & kế hoạch mẫu bên dưới hoặc nhập câu hỏi trực tiếp:
@@ -1148,34 +1421,48 @@ function Label({ children }: { children: React.ReactNode }) {
 
 function SectionTitle({ num, title }: { num: string; title: string }) {
   return (
-    <p className="font-mono text-xs font-medium tracking-[0.06em] uppercase">
-      <span className="text-primary">{num}</span>
-      <span className="ml-2 text-muted-foreground">{title}</span>
-    </p>
+    <div className="flex items-center gap-2">
+      <Badge variant="outline" className="font-mono text-xs">
+        {num}
+      </Badge>
+      <h2 className="font-bold text-sm uppercase tracking-wide">{title}</h2>
+    </div>
   );
 }
 
 function Code({ children }: { children: React.ReactNode }) {
-  return <code className="bg-muted px-1 py-0.5 font-mono text-[0.85em] text-foreground">{children}</code>;
+  return <code className="border bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground">{children}</code>;
 }
 
-function SetupStep(props: { number: number; title: string; done: boolean; last?: boolean; children: React.ReactNode }) {
+function SetupStep({
+  number,
+  title,
+  done,
+  last,
+  children,
+}: {
+  number: number;
+  title: string;
+  done: boolean;
+  last?: boolean;
+  children: React.ReactNode;
+}) {
   return (
     <div className="flex gap-3">
       <div className="flex flex-col items-center">
-        <span
+        <div
           className={cn(
-            "flex size-5 shrink-0 items-center justify-center border font-mono text-[11px] font-bold",
-            props.done ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground text-muted-foreground"
+            "flex size-6 shrink-0 items-center justify-center rounded-full font-mono text-xs font-bold",
+            done ? "bg-emerald-500 text-white" : "border text-muted-foreground"
           )}
         >
-          {props.done ? <Check className="size-3" strokeWidth={3} /> : props.number}
-        </span>
-        {!props.last && <span className={cn("w-0.5 flex-1 my-1", props.done ? "bg-primary" : "bg-border")} />}
+          {done ? "✓" : number}
+        </div>
+        {!last && <div className="my-1 w-px flex-1 bg-border" />}
       </div>
-      <div className={cn("flex min-w-0 flex-1 flex-col gap-1.5", !props.last && "pb-4")}>
-        <p className="font-bold text-xs uppercase tracking-tight">{props.title}</p>
-        {props.children}
+      <div className="flex flex-1 flex-col gap-1.5 pb-4">
+        <p className="font-bold text-xs uppercase">{title}</p>
+        {children}
       </div>
     </div>
   );
@@ -1183,18 +1470,22 @@ function SetupStep(props: { number: number; title: string; done: boolean; last?:
 
 function WalletDetails({ wallet, onRefresh }: { wallet: WalletInfo; onRefresh: () => void }) {
   const [copied, setCopied] = useState(false);
-  const address = wallet.address!;
+  const address = wallet.address ?? "";
 
-  function copy() {
+  const copy = () => {
     navigator.clipboard.writeText(address);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
-  }
+  };
 
   return (
-    <div className="flex flex-col gap-2.5 border bg-background p-3">
-      <div className="flex items-center justify-between gap-2">
-        <code className="truncate font-mono text-xs text-primary">{address}</code>
+    <div className="flex flex-col gap-3 border p-3">
+      <div className="flex items-center justify-between">
+        <p className="font-mono text-xs font-semibold text-muted-foreground uppercase">Address</p>
+        <span className="font-mono text-[10px] text-emerald-500 uppercase">Base Sepolia L2</span>
+      </div>
+      <div className="flex items-center justify-between gap-2 border bg-muted/40 p-2">
+        <code className="truncate font-mono text-xs">{address}</code>
         <Button variant="ghost" size="icon-xs" onClick={copy} aria-label="Copy address">
           {copied ? <Check className="size-3 text-emerald-500" /> : <Copy className="size-3" />}
         </Button>

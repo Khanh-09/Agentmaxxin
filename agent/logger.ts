@@ -62,3 +62,6 @@ export function getExecutionLogs(limit = 50): ExecutionLog[] {
     return [];
   }
 }
+
+export const getRuns = getExecutionLogs;
+

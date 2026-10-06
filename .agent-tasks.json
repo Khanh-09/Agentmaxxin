@@ -1,0 +1,95 @@
+[
+  {
+    "id": "task_1791269915818_z4q41",
+    "projectId": "proj_1791269913281_yvex",
+    "userId": "guest_alice_researcher",
+    "objective": "Kiểm tra ví và tóm tắt ngắn gọn 1 câu",
+    "status": "succeeded",
+    "steps": [
+      {
+        "tool": "get_wallet_info",
+        "args": {},
+        "result": {
+          "address": "0x782445C5A8AFeB6224180e640e0D5987b56fe08e",
+          "balance": "0 ETH",
+          "network": "Base Sepolia (Testnet)",
+          "chainId": 84532,
+          "explorer": "https://sepolia.basescan.org/address/0x782445C5A8AFeB6224180e640e0D5987b56fe08e",
+          "faucetUrl": "https://console.optimism.io/faucet",
+          "faucets": [
+            {
+              "name": "Superchain Faucet",
+              "url": "https://console.optimism.io/faucet",
+              "amount": "0.05 ETH",
+              "description": "Instant Base Sepolia test ETH (connect GitHub/ID)",
+              "featured": true
+            },
+            {
+              "name": "Base Official Faucets",
+              "url": "https://docs.base.org/base-chain/tools/network-faucets",
+              "amount": "Free Test ETH",
+              "description": "Official Coinbase Developer Platform faucets aggregator",
+              "featured": true
+            },
+            {
+              "name": "QuickNode Faucet",
+              "url": "https://faucet.quicknode.com/base/sepolia",
+              "amount": "0.05 ETH / day",
+              "description": "Instant multi-chain faucet for Base Sepolia",
+              "featured": false
+            },
+            {
+              "name": "Alchemy Base Faucet",
+              "url": "https://www.alchemy.com/faucets/base-sepolia",
+              "amount": "0.1 ETH / day",
+              "description": "Direct testnet faucet from Alchemy",
+              "featured": false
+            },
+            {
+              "name": "LearnWeb3 Faucet",
+              "url": "https://learnweb3.io/faucets/base_sepolia/",
+              "amount": "Instant drop",
+              "description": "Community testnet faucet without complex requirements",
+              "featured": false
+            }
+          ]
+        },
+        "error": false
+      }
+    ],
+    "createdAt": "2026-10-06T06:58:35.818Z",
+    "startedAt": "2026-10-06T06:58:35.818Z",
+    "result": "Ví của bạn trên mạng Base Sepolia (`0x7824...e08e`) hiện đang có 0 ETH và cần nạp test ETH từ vòi nước (faucet) để thực hiện giao dịch.",
+    "durationMs": 31683,
+    "completedAt": "2026-10-06T06:59:07.502Z"
+  },
+  {
+    "id": "task_1791269913947_w4wew",
+    "projectId": "proj_1791269913281_yvex",
+    "userId": "guest_alice_researcher",
+    "objective": "Nghiên cứu bảo mật hợp đồng reentrancy",
+    "status": "cancelled",
+    "idempotencyKey": "idem_test_1791269913780",
+    "steps": [
+      {
+        "name": "Phân tích yêu cầu & Lập kế hoạch",
+        "status": "pending"
+      },
+      {
+        "name": "Truy vấn Tools & Thu thập dữ liệu",
+        "status": "pending"
+      },
+      {
+        "name": "Tổng hợp thông tin & Kiểm chứng nguồn",
+        "status": "pending"
+      },
+      {
+        "name": "Đánh giá chất lượng & Trả kết quả",
+        "status": "pending"
+      }
+    ],
+    "createdAt": "2026-10-06T06:58:33.947Z",
+    "error": "Tác vụ đã được hủy bởi người dùng.",
+    "completedAt": "2026-10-06T06:58:35.277Z"
+  }
+]
