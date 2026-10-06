@@ -15,6 +15,7 @@ import {
   Droplet,
   ExternalLink,
   FileText,
+  FolderOpen,
   Fuel,
   Globe,
   GraduationCap,
@@ -24,6 +25,7 @@ import {
   Plus,
   RefreshCw,
   RotateCcw,
+  Save,
   Search,
   SendHorizontal,
   ShieldCheck,
@@ -96,6 +98,18 @@ type UserMemory = {
   value: string;
   updatedAt: string;
 };
+type ProjectTask = {
+  id: string;
+  userId: string;
+  title: string;
+  objective: string;
+  status: "ACTIVE" | "COMPLETED" | "PAUSED";
+  domain: string;
+  messages: Message[];
+  summary?: string;
+  createdAt: string;
+  updatedAt: string;
+};
 
 // 5 Core Standard Sample Tasks + Specialist Presets
 const STANDARD_TASKS = [
@@ -147,13 +161,16 @@ export default function Home() {
   const [wallet, setWallet] = useState<WalletInfo | null>(null);
   const [training, setTraining] = useState<TrainingData | null>(null);
   const [memories, setMemories] = useState<UserMemory[]>([]);
+  const [projects, setProjects] = useState<ProjectTask[]>([]);
+  const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
+  const [currentProjectStatus, setCurrentProjectStatus] = useState<"ACTIVE" | "COMPLETED" | "PAUSED">("ACTIVE");
   const [userAccount, setUserAccount] = useState<string | null>(null);
   const [userBalance, setUserBalance] = useState<string | null>(null);
   const [connectingUser, setConnectingUser] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
-  const [activeTab, setActiveTab] = useState<"workspace" | "memory" | "setup" | "faucet" | "tools" | "knowledge" | "history">("workspace");
+  const [activeTab, setActiveTab] = useState<"workspace" | "projects" | "memory" | "setup" | "faucet" | "tools" | "knowledge">("workspace");
   const [newMemoryKey, setNewMemoryKey] = useState("");
   const [newMemoryVal, setNewMemoryVal] = useState("");
   const [uploadFileText, setUploadFileText] = useState("");
@@ -161,6 +178,7 @@ export default function Home() {
   const [uploading, setUploading] = useState(false);
   const [uploadMsg, setUploadMsg] = useState<string | null>(null);
 
+  const currentUserId = userAccount || "default_user";
   const abortControllerRef = useRef<AbortController | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -182,16 +200,88 @@ export default function Home() {
       .then((d) => setMemories(d.memories || []))
       .catch(() => null);
 
+  const loadProjects = () =>
+    fetch(`/api/projects?userId=${encodeURIComponent(currentUserId)}`)
+      .then((r) => r.json())
+      .then((d) => setProjects(d.projects || []))
+      .catch(() => null);
+
   useEffect(() => {
     fetch("/api/agent").then((r) => r.json()).then(setStatus);
     loadWallet();
     loadTraining();
     loadMemories();
+    loadProjects();
   }, []);
+
+  useEffect(() => {
+    loadProjects();
+  }, [userAccount]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, thinking]);
+
+  /** Auto-save or update the active project session */
+  async function autoSaveProject(msgs: Message[], projId: string | null = currentProjectId, stat: "ACTIVE" | "COMPLETED" | "PAUSED" = currentProjectStatus) {
+    if (msgs.length === 0) return;
+    try {
+      const res = await fetch("/api/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: projId || undefined,
+          userId: currentUserId,
+          status: stat,
+          messages: msgs.filter((m) => !m.error),
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.project) {
+        setCurrentProjectId(data.project.id);
+        loadProjects();
+      }
+    } catch (err) {
+      console.error("Auto-save project failed:", err);
+    }
+  }
+
+  function startNewTask() {
+    setMessages([]);
+    setCurrentProjectId(null);
+    setCurrentProjectStatus("ACTIVE");
+    setInput("");
+  }
+
+  function resumeProject(p: ProjectTask) {
+    setMessages(p.messages || []);
+    setCurrentProjectId(p.id);
+    setCurrentProjectStatus(p.status || "ACTIVE");
+  }
+
+  async function deleteProjectItem(id: string, e: React.MouseEvent) {
+    e.stopPropagation();
+    try {
+      await fetch("/api/projects", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, userId: currentUserId }),
+      });
+      if (currentProjectId === id) {
+        startNewTask();
+      }
+      loadProjects();
+    } catch (err) {
+      console.error("Delete project failed:", err);
+    }
+  }
+
+  async function updateProjectStatus(newStatus: "ACTIVE" | "COMPLETED" | "PAUSED") {
+    setCurrentProjectStatus(newStatus);
+    if (messages.length > 0) {
+      await autoSaveProject(messages, currentProjectId, newStatus);
+    }
+  }
 
   /** Connect User's Browser Web3 Wallet (MetaMask / Coinbase / Rabby) */
   async function connectBrowserWallet() {
@@ -261,21 +351,25 @@ export default function Home() {
         signal: controller.signal,
       });
       const data = await res.json();
-      setMessages((m) => [
-        ...m,
+      const updatedMessages: Message[] = [
+        ...history,
         data.error
           ? { role: "agent", text: data.error, error: true }
           : { role: "agent", text: data.answer, steps: data.steps, domain: data.domain },
-      ]);
+      ];
+      setMessages(updatedMessages);
+      autoSaveProject(updatedMessages);
       loadWallet();
       loadTraining();
       loadMemories();
     } catch (err: any) {
       if (err.name === "AbortError") {
-        setMessages((m) => [
-          ...m,
+        const updatedMessages: Message[] = [
+          ...history,
           { role: "agent", text: "⏹️ Tác vụ đã được hủy bởi người dùng.", error: false },
-        ]);
+        ];
+        setMessages(updatedMessages);
+        autoSaveProject(updatedMessages);
       } else {
         setMessages((m) => [
           ...m,
@@ -405,7 +499,7 @@ export default function Home() {
               AgentMaxx <span className="text-primary">Cognitive Pro.</span>
             </h1>
             <p className="mt-1 max-w-3xl text-sm text-muted-foreground leading-relaxed">
-              Agent Nghiên cứu & Lập kế hoạch có nguồn minh bạch, tích hợp RAG tài liệu, quản lý bộ nhớ dài hạn, định lượng tài chính và thực thi an toàn trên Base Sepolia L2.
+              Agent Nghiên cứu & Lập kế hoạch có nguồn minh bạch, quản lý dự án & tác vụ bền vững, RAG tài liệu, quản lý bộ nhớ dài hạn, và thực thi an toàn trên Base Sepolia L2.
             </p>
           </div>
         </div>
@@ -415,40 +509,46 @@ export default function Home() {
         {/* Left column: Navigation Tabs & Detail Cards */}
         <aside className="flex flex-col gap-4">
           {/* Tab Selection Bar */}
-          <div className="grid grid-cols-6 gap-1 p-1 bg-muted/60 border font-mono text-[11px] uppercase">
+          <div className="grid grid-cols-7 gap-1 p-1 bg-muted/60 border font-mono text-[10px] uppercase">
             <button
               onClick={() => setActiveTab("workspace")}
-              className={cn("py-2 px-1 text-center transition-colors font-semibold", activeTab === "workspace" ? "bg-background shadow text-primary" : "text-muted-foreground hover:text-foreground")}
+              className={cn("py-2 px-0.5 text-center transition-colors font-semibold", activeTab === "workspace" ? "bg-background shadow text-primary" : "text-muted-foreground hover:text-foreground")}
             >
               Task
             </button>
             <button
+              onClick={() => setActiveTab("projects")}
+              className={cn("py-2 px-0.5 text-center transition-colors font-semibold", activeTab === "projects" ? "bg-background shadow text-primary" : "text-muted-foreground hover:text-foreground")}
+            >
+              Saved
+            </button>
+            <button
               onClick={() => setActiveTab("memory")}
-              className={cn("py-2 px-1 text-center transition-colors font-semibold", activeTab === "memory" ? "bg-background shadow text-primary" : "text-muted-foreground hover:text-foreground")}
+              className={cn("py-2 px-0.5 text-center transition-colors font-semibold", activeTab === "memory" ? "bg-background shadow text-primary" : "text-muted-foreground hover:text-foreground")}
             >
               Memory
             </button>
             <button
               onClick={() => setActiveTab("setup")}
-              className={cn("py-2 px-1 text-center transition-colors font-semibold", activeTab === "setup" ? "bg-background shadow text-primary" : "text-muted-foreground hover:text-foreground")}
+              className={cn("py-2 px-0.5 text-center transition-colors font-semibold", activeTab === "setup" ? "bg-background shadow text-primary" : "text-muted-foreground hover:text-foreground")}
             >
               Wallet
             </button>
             <button
               onClick={() => setActiveTab("faucet")}
-              className={cn("py-2 px-1 text-center transition-colors font-semibold flex items-center justify-center gap-1", activeTab === "faucet" ? "bg-background shadow text-amber-500" : "text-muted-foreground hover:text-foreground")}
+              className={cn("py-2 px-0.5 text-center transition-colors font-semibold flex items-center justify-center gap-0.5", activeTab === "faucet" ? "bg-background shadow text-amber-500" : "text-muted-foreground hover:text-foreground")}
             >
-              <Droplet className="size-3" /> Faucet
+              <Droplet className="size-2.5" /> Faucet
             </button>
             <button
               onClick={() => setActiveTab("tools")}
-              className={cn("py-2 px-1 text-center transition-colors font-semibold", activeTab === "tools" ? "bg-background shadow text-primary" : "text-muted-foreground hover:text-foreground")}
+              className={cn("py-2 px-0.5 text-center transition-colors font-semibold", activeTab === "tools" ? "bg-background shadow text-primary" : "text-muted-foreground hover:text-foreground")}
             >
               Tools
             </button>
             <button
               onClick={() => setActiveTab("knowledge")}
-              className={cn("py-2 px-1 text-center transition-colors font-semibold", activeTab === "knowledge" ? "bg-background shadow text-primary" : "text-muted-foreground hover:text-foreground")}
+              className={cn("py-2 px-0.5 text-center transition-colors font-semibold", activeTab === "knowledge" ? "bg-background shadow text-primary" : "text-muted-foreground hover:text-foreground")}
             >
               RAG
             </button>
@@ -459,6 +559,14 @@ export default function Home() {
             <Card className="flex flex-col gap-4">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <SectionTitle num="01" title="Workspace & 5 Tác Vụ Mẫu" />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={startNewTask}
+                  className="h-7 text-xs font-mono border-primary/40 text-primary hover:bg-primary/10"
+                >
+                  <Plus className="mr-1 size-3" /> Tác Vụ Mới
+                </Button>
               </CardHeader>
               <CardContent className="flex flex-col gap-4 font-mono text-xs">
                 {/* 5 Standard Sample Tasks */}
@@ -520,11 +628,86 @@ export default function Home() {
             </Card>
           )}
 
-          {/* TAB 2: MEMORY & PERSONA MANAGER */}
+          {/* TAB 2: SAVED PROJECTS & TASK HISTORY */}
+          {activeTab === "projects" && (
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <SectionTitle num="SAVED" title="Dự Án & Lịch Sử Tác Vụ" />
+                <Button variant="ghost" size="icon-xs" onClick={loadProjects} aria-label="Refresh projects">
+                  <RefreshCw className="size-3.5" />
+                </Button>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-3 font-mono text-xs max-h-[520px] overflow-y-auto pr-1">
+                <div className="flex items-center justify-between pb-1 border-b">
+                  <span className="text-muted-foreground text-[11px]">
+                    User ID: <code className="text-primary">{currentUserId === "default_user" ? "Local Default" : `${currentUserId.slice(0, 6)}...`}</code>
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={startNewTask}
+                    className="h-7 text-xs font-mono border-primary/40 text-primary hover:bg-primary/10"
+                  >
+                    <Plus className="mr-1 size-3" /> Tạo Mới
+                  </Button>
+                </div>
+
+                {projects.length === 0 ? (
+                  <p className="text-muted-foreground text-[11px] italic p-3 border text-center">
+                    Chưa có dự án nào được lưu. Các tác vụ chat sẽ tự động lưu lại vào đây.
+                  </p>
+                ) : (
+                  projects.map((p) => (
+                    <div
+                      key={p.id}
+                      onClick={() => resumeProject(p)}
+                      className={cn(
+                        "p-3 border flex flex-col gap-1.5 cursor-pointer transition-colors",
+                        currentProjectId === p.id ? "border-primary bg-primary/5" : "bg-background hover:bg-muted/30"
+                      )}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-bold text-foreground truncate text-xs flex items-center gap-1.5">
+                          <FolderOpen className="size-3.5 text-primary" /> {p.title}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <Badge
+                            variant="secondary"
+                            className={cn(
+                              "text-[9px] uppercase px-1.5 py-0",
+                              p.status === "ACTIVE" && "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+                              p.status === "COMPLETED" && "bg-blue-500/15 text-blue-600 dark:text-blue-400",
+                              p.status === "PAUSED" && "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                            )}
+                          >
+                            {p.status}
+                          </Badge>
+                          <button
+                            onClick={(e) => deleteProjectItem(p.id, e)}
+                            title="Xóa dự án"
+                            className="text-muted-foreground hover:text-destructive p-0.5"
+                          >
+                            <Trash2 className="size-3" />
+                          </button>
+                        </div>
+                      </div>
+                      <p className="text-muted-foreground text-[11px] font-sans line-clamp-1">{p.objective}</p>
+                      <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1 border-t">
+                        <span>{p.messages?.length ?? 0} tin nhắn</span>
+                        <span>{new Date(p.updatedAt).toLocaleString()}</span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* TAB 3: MEMORY & PERSONA MANAGER */}
           {activeTab === "memory" && (
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
-                <SectionTitle num="02" title="Quản Lý Bộ Nhớ Dài Hạn" />
+                <SectionTitle num="03" title="Quản Lý Bộ Nhớ Dài Hạn" />
                 <Button variant="ghost" size="icon-xs" onClick={loadMemories} aria-label="Refresh memory">
                   <RefreshCw className="size-3.5" />
                 </Button>
@@ -584,11 +767,11 @@ export default function Home() {
             </Card>
           )}
 
-          {/* TAB 3: Setup & Agent Wallet */}
+          {/* TAB 4: Setup & Agent Wallet */}
           {activeTab === "setup" && (
             <Card>
               <CardHeader>
-                <SectionTitle num="03" title="Gemini & Agent Autonomous Wallet" />
+                <SectionTitle num="04" title="Gemini & Agent Autonomous Wallet" />
               </CardHeader>
               <CardContent className="flex flex-col gap-4">
                 <SetupStep number={1} title="Gemini AI Engine" done={ready}>
@@ -613,7 +796,7 @@ export default function Home() {
             </Card>
           )}
 
-          {/* TAB 4: Faucet Center */}
+          {/* TAB 5: Faucet Center */}
           {activeTab === "faucet" && (
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
@@ -675,11 +858,11 @@ export default function Home() {
             </Card>
           )}
 
-          {/* TAB 5: Multi-Domain Tools Catalog */}
+          {/* TAB 6: Multi-Domain Tools Catalog */}
           {activeTab === "tools" && (
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
-                <SectionTitle num="05" title={`Multi-Domain Tools (${status?.tools.length ?? 0})`} />
+                <SectionTitle num="06" title={`Multi-Domain Tools (${status?.tools.length ?? 0})`} />
               </CardHeader>
               <CardContent className="flex flex-col gap-3 max-h-[520px] overflow-y-auto pr-1">
                 {status?.tools.map((t) => (
@@ -710,11 +893,11 @@ export default function Home() {
             </Card>
           )}
 
-          {/* TAB 6: Knowledge Base & RAG Index */}
+          {/* TAB 7: Knowledge Base & RAG Index */}
           {activeTab === "knowledge" && (
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
-                <SectionTitle num="06" title="RAG & Knowledge Base" />
+                <SectionTitle num="07" title="RAG & Knowledge Base" />
                 <Button variant="ghost" size="icon-xs" onClick={loadTraining} aria-label="Refresh training">
                   <RefreshCw className="size-3.5" />
                 </Button>
@@ -766,21 +949,41 @@ export default function Home() {
 
         {/* Right column: Chat & Interactive Workbench */}
         <Card className="flex flex-col overflow-hidden border">
-          <CardHeader className="border-b px-4 py-3 bg-muted/30 flex flex-row items-center justify-between">
+          <CardHeader className="border-b px-4 py-3 bg-muted/30 flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2 font-mono text-xs">
               <Terminal className="size-4 text-primary" />
               <span className="font-bold text-foreground uppercase">AgentMaxx Interactive Terminal</span>
+              {currentProjectId && (
+                <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                  Session ID: {currentProjectId.slice(-6)}
+                </Badge>
+              )}
             </div>
-            {messages.length > 0 && (
+            <div className="flex items-center gap-2">
+              {/* Task Status Selector */}
+              <div className="flex items-center gap-1 border bg-background px-2 py-0.5 font-mono text-xs">
+                <span className="text-muted-foreground text-[10px]">Status:</span>
+                <select
+                  value={currentProjectStatus}
+                  onChange={(e) => updateProjectStatus(e.target.value as any)}
+                  className="bg-transparent text-xs font-semibold text-primary outline-none cursor-pointer"
+                >
+                  <option value="ACTIVE" className="bg-background text-foreground">🟢 ACTIVE</option>
+                  <option value="COMPLETED" className="bg-background text-foreground">🔵 COMPLETED</option>
+                  <option value="PAUSED" className="bg-background text-foreground">🟡 PAUSED</option>
+                </select>
+              </div>
+
               <Button
-                variant="ghost"
+                variant="outline"
                 size="sm"
-                className="h-7 text-xs font-mono text-muted-foreground hover:text-foreground"
-                onClick={() => setMessages([])}
+                className="h-7 text-xs font-mono"
+                onClick={startNewTask}
+                title="Bắt đầu tác vụ mới"
               >
-                <RotateCcw className="mr-1 size-3" /> Clear Chat
+                <Plus className="mr-1 size-3" /> Tác Vụ Mới
               </Button>
-            )}
+            </div>
           </CardHeader>
 
           {/* Real-time Progress Bar when Thinking */}

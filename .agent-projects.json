@@ -1,0 +1,22 @@
+[
+  {
+    "id": "proj_1791269565695_ty5b",
+    "userId": "0x1234567890abcdef",
+    "title": "Nghiên cứu DeFi trên Base Sepolia",
+    "objective": "Khảo sát thanh khoản DEX và EIP-1559 gas",
+    "status": "ACTIVE",
+    "domain": "general",
+    "messages": [
+      {
+        "role": "user",
+        "text": "Khảo sát thanh khoản DEX trên Base Sepolia"
+      },
+      {
+        "role": "agent",
+        "text": "Dựa trên phân tích, Base Sepolia hỗ trợ EIP-1559 với chi phí dưới 0.001 USD."
+      }
+    ],
+    "createdAt": "2026-10-06T06:52:45.695Z",
+    "updatedAt": "2026-10-06T06:52:45.695Z"
+  }
+]
