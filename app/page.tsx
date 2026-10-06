@@ -236,6 +236,23 @@ export default function Home() {
 
   const initSession = async (walletAddress?: string) => {
     try {
+      if (typeof window !== "undefined" && !walletAddress) {
+        const cached = localStorage.getItem("agentmaxx_session_token");
+        if (cached) {
+          try {
+            const checkRes = await fetch("/api/auth/session", {
+              headers: { Authorization: `Bearer ${cached}` },
+            });
+            const checkData = await checkRes.json();
+            if (checkData.valid && checkData.token) {
+              setSessionToken(checkData.token);
+              setSessionUser(checkData.userId);
+              return checkData.token;
+            }
+          } catch {}
+        }
+      }
+
       const res = await fetch("/api/auth/session", {
         method: walletAddress ? "POST" : "GET",
         headers: { "Content-Type": "application/json" },
@@ -243,6 +260,9 @@ export default function Home() {
       });
       const data = await res.json();
       if (data.token) {
+        if (typeof window !== "undefined") {
+          localStorage.setItem("agentmaxx_session_token", data.token);
+        }
         setSessionToken(data.token);
         setSessionUser(data.userId);
         return data.token;
@@ -504,14 +524,18 @@ export default function Home() {
     setInput("");
     setThinking(true);
 
-    const idempotencyKey = `idem_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const effectiveProjId = currentProjectId || `proj_${Date.now()}`;
+    let tok = sessionToken;
+    if (!tok) {
+      tok = (await initSession()) || "";
+    }
+    const idempotencyKey = `idem_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
     try {
       // 1. Post to async task endpoint (returns immediately < 150ms)
       const res = await fetch("/api/tasks", {
         method: "POST",
-        headers: getAuthHeaders(),
+        headers: getAuthHeaders(tok),
         body: JSON.stringify({
           projectId: effectiveProjId,
           objective: text,
@@ -538,7 +562,7 @@ export default function Home() {
       const poll = async () => {
         polls++;
         try {
-          const taskRes = await fetch(`/api/tasks/${taskId}`, { headers: getAuthHeaders() });
+          const taskRes = await fetch(`/api/tasks/${taskId}`, { headers: getAuthHeaders(tok) });
           const taskJson = await taskRes.json();
           if (taskJson.task) {
             const t: AgentTask = taskJson.task;
@@ -588,7 +612,7 @@ export default function Home() {
           console.error("Polling error:", pollErr);
         }
 
-        if (polls < maxPolls && thinking) {
+        if (polls < maxPolls) {
           setTimeout(poll, pollInterval);
         } else {
           setThinking(false);

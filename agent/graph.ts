@@ -14,6 +14,7 @@ import { queryKnowledgeBase, getAgentLearnings } from "./knowledge";
 import { getRelevantExemplars, recordHighRewardExemplar, reflectAndLearnFromRun } from "./training";
 import { getAgentRuntimeConfig } from "./config";
 import type { TaskUsageMetrics, CostBreakdown } from "./tasks";
+import { calculateExactCost } from "./pricing";
 
 export const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 const MAX_STEPS = 5;
@@ -269,51 +270,26 @@ ${route.systemInstructionAddendum}
   // ─── STAGE 4: LOG NODE (Persistent Run Record) ───
   const runId = logExecution(lastUserMsg, route.domain, steps, finalAnswer, evaluation);
 
-  // ─── ITEMISED COST ACCOUNTING & USAGE METRICS ───
+  // ─── EXACT COST ACCOUNTING & USAGE METRICS ───
   const totalTokens = promptTokenCount + candidateTokenCount;
-  const nonCachedPrompt = Math.max(0, promptTokenCount - cachedTokenCount);
 
-  const isMock = config.mode === "mock";
-  const searchCostPerQuery = isMock ? 0.0 : (process.env.TAVILY_API_KEY ? 0.005 : 0.0);
-  const searchCostUsd: number = Number((searchCallsCount * searchCostPerQuery).toFixed(6));
-
-  let llmInferenceCostUsd: number | "chưa đo";
-  let totalEstimatedCostUsd: number | "chưa đo";
-  let pricingVersion: string;
-  let disclaimer: string;
-  let costCalculationMethod: string;
-
-  if (isMock) {
-    llmInferenceCostUsd = 0.0;
-    totalEstimatedCostUsd = 0.0;
-    pricingVersion = "Giả lập (Mock Sandbox - Không phát sinh chi phí thật)";
-    disclaimer = "Chế độ Mock Sandbox: Chạy hoàn toàn bằng dữ liệu giả lập cục bộ, không phát sinh chi phí dịch vụ thực tế.";
-    costCalculationMethod = "Mock Sandbox (Miễn phí 100% / Không tiêu thụ quota)";
-  } else {
-    // Gemini Flash pricing model ($0.075/1M input, $0.01875/1M cached, $0.30/1M output/thinking)
-    llmInferenceCostUsd = hasUsageMetadata
-      ? Number(((nonCachedPrompt * 0.075 + cachedTokenCount * 0.01875 + candidateTokenCount * 0.30) / 1_000_000).toFixed(6))
-      : "chưa đo";
-
-    totalEstimatedCostUsd =
-      typeof llmInferenceCostUsd === "number"
-        ? Number((llmInferenceCostUsd + searchCostUsd).toFixed(6))
-        : "chưa đo";
-
-    const searchPricingLabel = searchCostPerQuery > 0 ? "Tavily Search API ($0.005/query)" : "Wikipedia Live Free API ($0.00)";
-    pricingVersion = `Google AI Gemini Flash (${MODEL}) [v2025.1] + ${searchPricingLabel}`;
-    disclaimer = "Ước tính chi phí kỹ thuật (Estimated Technical Cost) dựa trên số lượng token và số lượt gọi API thực tế. Không đại diện cho hóa đơn thanh toán thực tế (invoicing) từ các nhà cung cấp dịch vụ.";
-    costCalculationMethod = hasUsageMetadata
-      ? `Gemini ${MODEL} ($0.075/1M in, $0.01875/1M cached, $0.30/1M out) + ${searchPricingLabel}`
-      : "chưa đo";
-  }
+  const costResult = calculateExactCost({
+    modelId: MODEL,
+    promptTokens: promptTokenCount,
+    cachedTokens: cachedTokenCount,
+    candidateTokens: candidateTokenCount,
+    searchCallsCount,
+    searchProvider: config.search.provider,
+    mode: config.mode,
+  });
 
   const costBreakdown: CostBreakdown = {
-    llmInferenceCostUsd,
-    searchCostUsd,
-    totalEstimatedCostUsd,
-    pricingVersion,
-    disclaimer,
+    llmInferenceCostUsd: costResult.llmInferenceCostUsd,
+    searchCostUsd: costResult.searchCostUsd,
+    totalEstimatedCostUsd: costResult.totalEstimatedCostUsd,
+    pricingVersion: costResult.pricingVersion,
+    disclaimer: costResult.disclaimer,
+    isFreeTier: costResult.isFreeTier,
   };
 
   const usageMetrics: TaskUsageMetrics = {
@@ -323,14 +299,14 @@ ${route.systemInstructionAddendum}
     candidateTokens: candidateTokenCount,
     totalTokens,
     costBreakdown,
-    estimatedCostUsd: totalEstimatedCostUsd,
-    costCalculationMethod,
+    estimatedCostUsd: costResult.totalEstimatedCostUsd,
+    costCalculationMethod: costResult.calculationMethod,
     toolCallsCount: steps.length,
     searchCallsCount,
     executionTimeMs: Date.now() - startTime,
     searchProvider: config.search.provider,
     llmModel: MODEL,
-    serviceType: isMock ? "Mock Sandbox Simulator" : "Google Gemini Flash + Web Search Engine",
+    serviceType: config.mode === "mock" ? "Mock Sandbox Simulator" : "Google Gemini Flash + Web Search Engine",
     mode: config.mode,
   };
 

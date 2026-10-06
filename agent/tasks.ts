@@ -52,11 +52,12 @@ export type TaskReport = {
 };
 
 export type CostBreakdown = {
-  llmInferenceCostUsd: number | "chưa đo";
-  searchCostUsd: number | "chưa đo";
-  totalEstimatedCostUsd: number | "chưa đo";
+  llmInferenceCostUsd: number | "chưa đo" | "chưa xác định";
+  searchCostUsd: number | "chưa đo" | "chưa xác định";
+  totalEstimatedCostUsd: number | "chưa đo" | "chưa xác định";
   pricingVersion: string;
   disclaimer: string;
+  isFreeTier?: boolean;
 };
 
 export type TaskUsageMetrics = {
@@ -66,7 +67,7 @@ export type TaskUsageMetrics = {
   candidateTokens?: number;
   totalTokens?: number;
   costBreakdown?: CostBreakdown;
-  estimatedCostUsd?: number | "chưa đo";
+  estimatedCostUsd?: number | "chưa đo" | "chưa xác định";
   costCalculationMethod?: string;
   toolCallsCount?: number;
   searchCallsCount?: number;

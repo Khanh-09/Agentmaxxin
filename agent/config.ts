@@ -34,8 +34,8 @@ export type AgentRuntimeConfig = {
     maxSteps: number;
     stepTimeoutMs: number;
     taskTimeoutMs: number;
-    pricingPerMillionInputTokensUsd: number;
-    pricingPerMillionOutputTokensUsd: number;
+    pricingPerMillionInputTokensUsd?: number | "chưa xác định";
+    pricingPerMillionOutputTokensUsd?: number | "chưa xác định";
   };
 };
 
