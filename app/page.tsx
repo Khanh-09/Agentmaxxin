@@ -128,6 +128,8 @@ type AgentTask = {
   payloadHash?: string;
   steps?: Array<{ name: string; status: "pending" | "running" | "completed" | "failed"; detail?: string }>;
   toolSteps?: Step[];
+  sources?: any[];
+  report?: any;
   result?: string;
   error?: string;
   sideEffects?: string[];

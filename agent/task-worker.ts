@@ -79,7 +79,7 @@ export async function executeBackgroundTask(params: {
             taskSources.push({
               sourceId: `src_err_${taskSources.length + 1}`,
               url: "N/A",
-              title: `Truy vấn thất bại: ${step.args?.query || "Web Search"}`,
+              title: `Truy vấn thất bại: ${(step.args as any)?.query || "Web Search"}`,
               retrievedAt: new Date().toISOString(),
               dataType: "snippet",
               status: "failed",
@@ -87,7 +87,7 @@ export async function executeBackgroundTask(params: {
             });
           }
         } else if (step.tool === "extract_web_page") {
-          sideEffects.push(`Trích xuất nội dung chuyên sâu từ: ${resObj?.url || step.args?.url}`);
+          sideEffects.push(`Trích xuất nội dung chuyên sâu từ: ${resObj?.url || (step.args as any)?.url}`);
           if (resObj?.url) {
             const existingIdx = taskSources.findIndex((s) => s.url === resObj.url);
             const pageSource = {
