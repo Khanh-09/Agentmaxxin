@@ -11,7 +11,9 @@ import {
   Code2,
   Coins,
   Copy,
+  Droplet,
   ExternalLink,
+  Fuel,
   GraduationCap,
   History,
   Layers,
@@ -24,6 +26,7 @@ import {
   Sparkles,
   Terminal,
   Wallet,
+  WalletCards,
   Zap,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -49,6 +52,13 @@ type TxRecord = {
   timestamp: string;
   explorerUrl?: string;
 };
+type FaucetSource = {
+  name: string;
+  url: string;
+  amount: string;
+  description: string;
+  featured?: boolean;
+};
 type WalletInfo = {
   address: string | null;
   balance?: string;
@@ -56,6 +66,7 @@ type WalletInfo = {
   chainId?: number;
   explorer?: string;
   faucetUrl?: string;
+  faucets?: FaucetSource[];
   history?: TxRecord[];
 };
 type TrainingData = {
@@ -74,7 +85,7 @@ type TrainingData = {
 };
 
 const EXAMPLES = [
-  { label: "Web3 On-Chain", prompt: "Check my wallet info and current Base Sepolia balance" },
+  { label: "Web3 Faucet & Balance", prompt: "Check my wallet info and show Base Sepolia faucet links" },
   { label: "DeFi Swap & Gas", prompt: "Simulate swapping 0.5 ETH to USDC and analyze Base Sepolia gas fees" },
   { label: "Transfer Proposal", prompt: "Prepare transfer of 0.0001 ETH to 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045" },
   { label: "Quant Finance & TA", prompt: "Calculate RSI and SMA for [2500, 2550, 2600, 2580, 2620, 2700, 2750, 2800] and search knowledge base for RSI rules" },
@@ -88,11 +99,13 @@ export default function Home() {
   const [status, setStatus] = useState<Status | null>(null);
   const [wallet, setWallet] = useState<WalletInfo | null>(null);
   const [training, setTraining] = useState<TrainingData | null>(null);
+  const [userAccount, setUserAccount] = useState<string | null>(null);
+  const [connectingUser, setConnectingUser] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [activeTab, setActiveTab] = useState<"setup" | "tools" | "knowledge" | "history">("setup");
+  const [activeTab, setActiveTab] = useState<"setup" | "faucet" | "tools" | "knowledge" | "history">("setup");
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const loadWallet = () =>
@@ -124,6 +137,71 @@ export default function Home() {
     setCreating(false);
   }
 
+  /** Connect User's Browser Web3 Wallet (MetaMask / Coinbase / Rabby) */
+  async function connectBrowserWallet() {
+    const eth = (window as any)?.ethereum;
+    if (!eth) {
+      alert("No Web3 browser wallet (MetaMask, Rabby, Coinbase Wallet) detected. Please install an extension.");
+      return;
+    }
+    setConnectingUser(true);
+    try {
+      const accounts = await eth.request({ method: "eth_requestAccounts" });
+      if (accounts && accounts[0]) {
+        setUserAccount(accounts[0]);
+        // Request network switch to Base Sepolia (Chain ID 84532 / 0x14a34)
+        try {
+          await eth.request({
+            method: "wallet_switchEthereumChain",
+            params: [{ chainId: "0x14a34" }],
+          });
+        } catch (switchErr: any) {
+          if (switchErr.code === 4902) {
+            await eth.request({
+              method: "wallet_addEthereumChain",
+              params: [
+                {
+                  chainId: "0x14a34",
+                  chainName: "Base Sepolia Testnet",
+                  nativeCurrency: { name: "Sepolia ETH", symbol: "ETH", decimals: 18 },
+                  rpcUrls: ["https://sepolia.base.org"],
+                  blockExplorerUrls: ["https://sepolia.basescan.org"],
+                },
+              ],
+            });
+          }
+        }
+      }
+    } catch (err: any) {
+      console.error("Wallet connection failed:", err);
+    }
+    setConnectingUser(false);
+  }
+
+  /** Transfer test ETH from User's MetaMask to Agent Wallet in 1 click */
+  async function fundAgentFromUserWallet() {
+    if (!userAccount || !wallet?.address) return;
+    const eth = (window as any)?.ethereum;
+    if (!eth) return;
+
+    try {
+      // 0.005 ETH in hex wei = 0x11c37937e08000
+      await eth.request({
+        method: "eth_sendTransaction",
+        params: [
+          {
+            from: userAccount,
+            to: wallet.address,
+            value: "0x11c37937e08000",
+          },
+        ],
+      });
+      setTimeout(() => loadWallet(), 5000);
+    } catch (err: any) {
+      console.error("Fund transfer failed:", err);
+    }
+  }
+
   async function send(text: string) {
     if (!text.trim() || thinking) return;
     const history: Message[] = [...messages, { role: "user", text }];
@@ -144,7 +222,6 @@ export default function Home() {
           ? { role: "agent", text: data.error, error: true }
           : { role: "agent", text: data.answer, steps: data.steps, domain: data.domain },
       ]);
-      // Reload wallet & training metrics on completion
       loadWallet();
       loadTraining();
     } catch {
@@ -192,11 +269,11 @@ export default function Home() {
         </div>
       </header>
 
-      <div className="grid flex-1 gap-6 lg:grid-cols-[440px_1fr]">
+      <div className="grid flex-1 gap-6 lg:grid-cols-[450px_1fr]">
         {/* Left column: Navigation Tabs & Detail Cards */}
         <aside className="flex flex-col gap-4">
           {/* Tab Selection Bar */}
-          <div className="grid grid-cols-4 gap-1 p-1 bg-muted/60 border font-mono text-xs uppercase">
+          <div className="grid grid-cols-5 gap-1 p-1 bg-muted/60 border font-mono text-xs uppercase">
             <button
               onClick={() => setActiveTab("setup")}
               className={cn("py-2 px-1 text-center transition-colors font-semibold", activeTab === "setup" ? "bg-background shadow text-primary" : "text-muted-foreground hover:text-foreground")}
@@ -204,30 +281,36 @@ export default function Home() {
               Wallet
             </button>
             <button
+              onClick={() => setActiveTab("faucet")}
+              className={cn("py-2 px-1 text-center transition-colors font-semibold flex items-center justify-center gap-1", activeTab === "faucet" ? "bg-background shadow text-amber-500" : "text-muted-foreground hover:text-foreground")}
+            >
+              <Droplet className="size-3" /> Faucet
+            </button>
+            <button
               onClick={() => setActiveTab("tools")}
               className={cn("py-2 px-1 text-center transition-colors font-semibold", activeTab === "tools" ? "bg-background shadow text-primary" : "text-muted-foreground hover:text-foreground")}
             >
-              Tools ({status?.tools.length ?? 0})
+              Tools
             </button>
             <button
               onClick={() => setActiveTab("knowledge")}
               className={cn("py-2 px-1 text-center transition-colors font-semibold", activeTab === "knowledge" ? "bg-background shadow text-primary" : "text-muted-foreground hover:text-foreground")}
             >
-              Learn ({training?.knowledgeCount ?? 0})
+              Learn
             </button>
             <button
               onClick={() => setActiveTab("history")}
               className={cn("py-2 px-1 text-center transition-colors font-semibold", activeTab === "history" ? "bg-background shadow text-primary" : "text-muted-foreground hover:text-foreground")}
             >
-              Txs ({wallet?.history?.length ?? 0})
+              Txs
             </button>
           </div>
 
-          {/* TAB 1: Setup & Wallet */}
+          {/* TAB 1: Setup & Dual Wallet Connection */}
           {activeTab === "setup" && (
             <Card>
               <CardHeader>
-                <SectionTitle num="01" title="Gemini & On-Chain Wallet" />
+                <SectionTitle num="01" title="Gemini & Dual Web3 Wallets" />
               </CardHeader>
               <CardContent className="flex flex-col gap-4">
                 <SetupStep number={1} title="Gemini AI Engine" done={ready}>
@@ -239,24 +322,121 @@ export default function Home() {
                   {ready && <p className="font-mono text-xs text-emerald-500">✓ Connected & Active (gemini-3.5-flash-lite)</p>}
                 </SetupStep>
 
-                <SetupStep number={2} title="Base Sepolia L2 Wallet" done={Boolean(wallet?.address)} last>
+                <SetupStep number={2} title="Agent Autonomous Wallet" done={Boolean(wallet?.address)}>
                   {wallet && !wallet.address && (
                     <div className="flex flex-col gap-3">
                       <p className="text-xs text-muted-foreground">
                         The agent signs transactions and pays for APIs directly on Base Sepolia testnet.
                       </p>
                       <Button onClick={createWallet} disabled={creating} className="w-fit font-mono tracking-wider uppercase">
-                        <Wallet className="mr-1.5 size-4" /> {creating ? "Creating..." : "Create Wallet"}
+                        <Wallet className="mr-1.5 size-4" /> {creating ? "Creating..." : "Create Agent Wallet"}
                       </Button>
                     </div>
                   )}
                   {wallet?.address && <WalletDetails wallet={wallet} onRefresh={loadWallet} />}
                 </SetupStep>
+
+                <SetupStep number={3} title="User Browser Wallet (Optional)" done={Boolean(userAccount)} last>
+                  {!userAccount ? (
+                    <div className="flex flex-col gap-2 pt-1">
+                      <p className="text-xs text-muted-foreground">
+                        Connect your MetaMask / Coinbase / Rabby wallet to easily fund the agent with test ETH.
+                      </p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={connectBrowserWallet}
+                        disabled={connectingUser}
+                        className="w-fit font-mono text-xs uppercase"
+                      >
+                        <WalletCards className="size-3.5 mr-1.5 text-primary" />
+                        {connectingUser ? "Connecting..." : "Connect MetaMask / Web3 Wallet"}
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-2 border p-2.5 bg-muted/20 font-mono text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Connected User:</span>
+                        <Badge variant="outline" className="text-emerald-500 border-emerald-500/30 text-[10px]">Active</Badge>
+                      </div>
+                      <code className="text-primary truncate text-[11px]">{userAccount}</code>
+                      <Button
+                        size="sm"
+                        onClick={fundAgentFromUserWallet}
+                        className="bg-primary text-primary-foreground font-mono uppercase text-xs mt-1"
+                      >
+                        <SendHorizontal className="size-3 mr-1" /> Send 0.005 Test ETH to Agent
+                      </Button>
+                    </div>
+                  )}
+                </SetupStep>
               </CardContent>
             </Card>
           )}
 
-          {/* TAB 2: Multi-Domain Tools Catalog */}
+          {/* TAB 2: Faucet Center */}
+          {activeTab === "faucet" && (
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <SectionTitle num="FAUCET" title="Base Sepolia Testnet Faucets" />
+                <Button variant="ghost" size="icon-xs" onClick={loadWallet} aria-label="Refresh balance">
+                  <RefreshCw className="size-3.5" />
+                </Button>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-3 font-mono text-xs max-h-[520px] overflow-y-auto pr-1">
+                {wallet?.address && (
+                  <div className="border border-amber-500/30 bg-amber-500/10 p-3 flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-amber-600 dark:text-amber-400 uppercase text-[11px]">
+                        Agent Wallet to Fund
+                      </span>
+                      <Badge variant="outline" className="text-[10px] text-foreground">
+                        {wallet.balance ?? "0 ETH"}
+                      </Badge>
+                    </div>
+                    <code className="text-[11px] truncate text-foreground select-all bg-background p-1.5 border">
+                      {wallet.address}
+                    </code>
+                    <p className="text-[11px] text-muted-foreground">
+                      💡 Click any faucet below, paste the address above, and request free test ETH.
+                    </p>
+                  </div>
+                )}
+
+                <div className="flex flex-col gap-2.5 pt-1">
+                  {(wallet?.faucets ?? [
+                    { name: "Superchain Faucet", url: "https://console.optimism.io/faucet", amount: "0.05 ETH", description: "Instant Base Sepolia test ETH (connect GitHub/ID)", featured: true },
+                    { name: "Base Official Faucets", url: "https://docs.base.org/base-chain/tools/network-faucets", amount: "Free Test ETH", description: "Official Coinbase Developer Platform faucets aggregator", featured: true },
+                    { name: "QuickNode Faucet", url: "https://faucet.quicknode.com/base/sepolia", amount: "0.05 ETH / day", description: "Instant multi-chain faucet for Base Sepolia" },
+                    { name: "Alchemy Base Faucet", url: "https://www.alchemy.com/faucets/base-sepolia", amount: "0.1 ETH / day", description: "Direct testnet faucet from Alchemy" },
+                    { name: "LearnWeb3 Faucet", url: "https://learnweb3.io/faucets/base_sepolia/", amount: "Instant drop", description: "Community testnet faucet without complex requirements" },
+                  ]).map((f) => (
+                    <div key={f.name} className={cn("border p-2.5 flex flex-col gap-1.5 bg-background", f.featured && "border-primary/40 bg-primary/5")}>
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-foreground">{f.name}</span>
+                        <Badge variant="secondary" className="text-[10px] uppercase bg-amber-500/15 text-amber-600 dark:text-amber-400">
+                          {f.amount}
+                        </Badge>
+                      </div>
+                      <p className="text-muted-foreground text-[11px]">{f.description}</p>
+                      <div className="flex items-center justify-end gap-2 pt-1 border-t">
+                        <a
+                          href={f.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 text-primary hover:underline text-[11px] font-semibold"
+                        >
+                          Open Faucet <ExternalLink className="size-3" />
+                        </a>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* TAB 3: Multi-Domain Tools Catalog */}
           {activeTab === "tools" && (
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
@@ -291,7 +471,7 @@ export default function Home() {
             </Card>
           )}
 
-          {/* TAB 3: Knowledge Base & Self-Training Metrics */}
+          {/* TAB 4: Knowledge Base & Self-Training Metrics */}
           {activeTab === "knowledge" && (
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
@@ -344,7 +524,7 @@ export default function Home() {
             </Card>
           )}
 
-          {/* TAB 4: Transaction History */}
+          {/* TAB 5: Transaction History */}
           {activeTab === "history" && (
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
@@ -599,12 +779,12 @@ function WalletDetails({ wallet, onRefresh }: { wallet: WalletInfo; onRefresh: (
           BaseScan Explorer <ExternalLink className="size-3" />
         </a>
         <a
-          className="inline-flex items-center gap-1 hover:text-primary text-muted-foreground"
-          href={wallet.faucetUrl || "https://docs.base.org/base-chain/tools/network-faucets"}
+          className="inline-flex items-center gap-1 hover:text-primary text-amber-500 font-semibold"
+          href={wallet.faucetUrl || "https://console.optimism.io/faucet"}
           target="_blank"
           rel="noreferrer"
         >
-          Get Free Test ETH <ExternalLink className="size-3" />
+          <Droplet className="size-3" /> Get Free Test ETH <ExternalLink className="size-3" />
         </a>
       </div>
       <p className="text-[11px] text-muted-foreground">Base Sepolia L2 Testnet. Keys secured server-side.</p>

@@ -83,9 +83,47 @@ export async function getWalletBalance(): Promise<string> {
   return `${formatEther(wei)} ETH`;
 }
 
+export const FAUCET_SOURCES = [
+  {
+    name: "Superchain Faucet",
+    url: "https://console.optimism.io/faucet",
+    amount: "0.05 ETH",
+    description: "Instant Base Sepolia test ETH (connect GitHub/ID)",
+    featured: true,
+  },
+  {
+    name: "Base Official Faucets",
+    url: "https://docs.base.org/base-chain/tools/network-faucets",
+    amount: "Free Test ETH",
+    description: "Official Coinbase Developer Platform faucets aggregator",
+    featured: true,
+  },
+  {
+    name: "QuickNode Faucet",
+    url: "https://faucet.quicknode.com/base/sepolia",
+    amount: "0.05 ETH / day",
+    description: "Instant multi-chain faucet for Base Sepolia",
+    featured: false,
+  },
+  {
+    name: "Alchemy Base Faucet",
+    url: "https://www.alchemy.com/faucets/base-sepolia",
+    amount: "0.1 ETH / day",
+    description: "Direct testnet faucet from Alchemy",
+    featured: false,
+  },
+  {
+    name: "LearnWeb3 Faucet",
+    url: "https://learnweb3.io/faucets/base_sepolia/",
+    amount: "Instant drop",
+    description: "Community testnet faucet without complex requirements",
+    featured: false,
+  },
+];
+
 export async function getWalletInfo() {
   const address = getWalletAddress();
-  if (!address) return { address: null, balance: "0 ETH", network: "Base Sepolia" };
+  if (!address) return { address: null, balance: "0 ETH", network: "Base Sepolia", faucets: FAUCET_SOURCES };
   const balance = await getWalletBalance().catch(() => "0 ETH");
   return {
     address,
@@ -93,9 +131,11 @@ export async function getWalletInfo() {
     network: "Base Sepolia (Testnet)",
     chainId: 84532,
     explorer: `https://sepolia.basescan.org/address/${address}`,
-    faucetUrl: "https://docs.base.org/base-chain/tools/network-faucets",
+    faucetUrl: "https://console.optimism.io/faucet",
+    faucets: FAUCET_SOURCES,
   };
 }
+
 
 /** ─── TRANSACTION LOGGING & HISTORY ─── */
 function readTxHistory(): TxRecord[] {

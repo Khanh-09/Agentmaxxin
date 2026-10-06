@@ -8,7 +8,9 @@
 import {
   estimateGasFees,
   executeOnChainTransfer,
+  FAUCET_SOURCES,
   getERC20Balance,
+
   getTransactionStatus,
   getWalletInfo,
   payAndFetch,
@@ -792,6 +794,25 @@ export const tools: Tool[] = [
       };
     },
   },
+
+  // ─── 28. Base Sepolia Faucet Hub & Test ETH Faucets ───
+  {
+    name: "get_faucet_links",
+    category: "crypto",
+    description: "Get direct, verified Base Sepolia testnet faucets to receive free test ETH for wallet funding and gas.",
+    parameters: { type: "object", properties: {} },
+    run: async () => {
+      const info = await getWalletInfo();
+      return {
+        walletAddress: info.address,
+        network: "Base Sepolia (Chain ID 84532)",
+        faucets: FAUCET_SOURCES,
+        recommendedAction: `Copy your agent wallet address '${info.address}' and request 0.05 - 0.1 ETH from the Superchain or QuickNode faucet.`,
+      };
+    },
+  },
 ];
+
+
 
 
