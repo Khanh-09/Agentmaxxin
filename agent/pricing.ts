@@ -20,23 +20,32 @@ export interface ModelPricingDefinition {
 
 // Official Google AI API Pricing Table (as of 2025/2026 published pricing)
 const OFFICIAL_PRICING_TABLE: Record<string, ModelPricingDefinition> = {
-  "gemini-2.5-flash": {
-    modelId: "gemini-2.5-flash",
-    provider: "google_ai",
-    inputCostPerMillionUsd: 0.075,
-    cachedInputCostPerMillionUsd: 0.01875,
-    outputCostPerMillionUsd: 0.30,
-    currency: "USD",
-    pricingVersion: "Google AI Gemini 2.5 Flash Official Matrix (v2025.1)",
-  },
-  "gemini-2.5-flash-lite": {
-    modelId: "gemini-2.5-flash-lite",
+  "gemini-3.5-flash-lite": {
+    modelId: "gemini-3.5-flash-lite",
     provider: "google_ai",
     inputCostPerMillionUsd: 0.0375,
     cachedInputCostPerMillionUsd: 0.009375,
     outputCostPerMillionUsd: 0.15,
     currency: "USD",
-    pricingVersion: "Google AI Gemini 2.5 Flash-Lite Official Matrix (v2025.1)",
+    pricingVersion: "Google AI Gemini 3.5 Flash-Lite Official Matrix (v2025.1)",
+  },
+  "gemini-3.5-flash": {
+    modelId: "gemini-3.5-flash",
+    provider: "google_ai",
+    inputCostPerMillionUsd: 0.075,
+    cachedInputCostPerMillionUsd: 0.01875,
+    outputCostPerMillionUsd: 0.30,
+    currency: "USD",
+    pricingVersion: "Google AI Gemini 3.5 Flash Official Matrix (v2025.1)",
+  },
+  "gemini-3.8-flash": {
+    modelId: "gemini-3.8-flash",
+    provider: "google_ai",
+    inputCostPerMillionUsd: 0.075,
+    cachedInputCostPerMillionUsd: 0.01875,
+    outputCostPerMillionUsd: 0.30,
+    currency: "USD",
+    pricingVersion: "Google AI Gemini 3.8 Flash Official Matrix (v2025.1)",
   },
   "gemini-1.5-flash": {
     modelId: "gemini-1.5-flash",

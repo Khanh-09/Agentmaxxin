@@ -16,7 +16,7 @@ import { getAgentRuntimeConfig } from "./config";
 import type { TaskUsageMetrics, CostBreakdown } from "./tasks";
 import { calculateExactCost } from "./pricing";
 
-export const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+export const MODEL = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
 const MAX_STEPS = 5;
 const STEP_TIMEOUT_MS = 8000;
 
