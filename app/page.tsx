@@ -1370,21 +1370,38 @@ export default function Home() {
                 </Badge>
               )}
               {currentTask && (
-                <Badge
-                  variant="secondary"
-                  className={cn(
-                    "text-[10px] uppercase font-mono px-2 py-0.5 flex items-center gap-1",
-                    currentTask.status === "running" && "bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30 animate-pulse",
-                    currentTask.status === "succeeded" && "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30",
-                    currentTask.status === "failed" && "bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30",
-                    currentTask.status === "queued" && "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30",
-                    currentTask.status === "cancelled" && "bg-slate-500/15 text-slate-600 dark:text-slate-400 border border-slate-500/30"
+                <div className="flex items-center gap-1.5">
+                  <Badge
+                    variant="secondary"
+                    className={cn(
+                      "text-[10px] uppercase font-mono px-2 py-0.5 flex items-center gap-1",
+                      currentTask.status === "running" && "bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30 animate-pulse",
+                      currentTask.status === "succeeded" && "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30",
+                      currentTask.status === "failed" && "bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30",
+                      currentTask.status === "queued" && "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30",
+                      currentTask.status === "cancelled" && "bg-slate-500/15 text-slate-600 dark:text-slate-400 border border-slate-500/30",
+                      currentTask.status === "interrupted" && "bg-orange-500/15 text-orange-600 dark:text-orange-400 border border-orange-500/30"
+                    )}
+                  >
+                    <span className="size-1.5 rounded-full bg-current" />
+                    Exec: {currentTask.status}
+                    {currentTask.durationMs ? ` (${(currentTask.durationMs / 1000).toFixed(2)}s)` : ""}
+                  </Badge>
+
+                  {currentTask.report?.outcome && (
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "text-[10px] uppercase font-mono px-2 py-0.5",
+                        currentTask.report.outcome === "complete" && "border-emerald-500/40 text-emerald-500 bg-emerald-500/10",
+                        currentTask.report.outcome === "partial" && "border-amber-500/40 text-amber-500 bg-amber-500/10",
+                        currentTask.report.outcome === "insufficient_evidence" && "border-rose-500/40 text-rose-500 bg-rose-500/10"
+                      )}
+                    >
+                      Outcome: {currentTask.report.outcome}
+                    </Badge>
                   )}
-                >
-                  <span className="size-1.5 rounded-full bg-current" />
-                  Task: {currentTask.status}
-                  {currentTask.durationMs ? ` (${(currentTask.durationMs / 1000).toFixed(2)}s)` : ""}
-                </Badge>
+                </div>
               )}
             </div>
             <div className="flex items-center gap-2">
@@ -1533,6 +1550,8 @@ export default function Home() {
                               text={m.text}
                               domain={m.domain}
                               sources={currentTask?.sources || m.steps?.flatMap((s) => s.result?.results || [])}
+                              taskStatus={currentTask?.status}
+                              reportOutcome={currentTask?.report?.outcome}
                             />
                           </>
                         )}
@@ -1871,10 +1890,14 @@ function AgentMessageToolbar({
   text,
   domain,
   sources,
+  taskStatus,
+  reportOutcome,
 }: {
   text: string;
   domain?: string;
   sources?: any[];
+  taskStatus?: string;
+  reportOutcome?: string;
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -1887,6 +1910,8 @@ function AgentMessageToolbar({
   function exportMarkdown() {
     let reportDoc = `# Báo Cáo Nghiên Cứu & Lập Kế Hoạch (AgentMaxx Report)\n`;
     reportDoc += `**Chuyên mục (Domain):** ${domain || "General"}\n`;
+    reportDoc += `**Vòng đời thực thi (Execution Status):** \`${taskStatus || "succeeded"}\`\n`;
+    reportDoc += `**Chất lượng đầu ra (Report Outcome):** \`${reportOutcome || (sources?.length ? "complete" : "insufficient_evidence")}\`\n`;
     reportDoc += `**Thời gian khởi tạo:** ${new Date().toLocaleString()}\n`;
     reportDoc += `\n---\n\n## 📝 Nội Dung Báo Cáo\n\n${text}\n\n`;
 

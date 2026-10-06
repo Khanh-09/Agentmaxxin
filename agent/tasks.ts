@@ -24,13 +24,31 @@ export type TaskSource = {
   error?: string;
 };
 
+export type ClaimVerification = {
+  claim: string;
+  sourceIds: string[];
+  validSourceIds: string[];
+  hasSupport: boolean;
+  supportLevel: "supported" | "partially_supported" | "unsupported" | "invalid_source";
+  evidenceSnippet?: string;
+  discrepancyNote?: string;
+};
+
 export type TaskReport = {
   summary: string;
+  outcome: "complete" | "partial" | "insufficient_evidence";
   keyFindings: string[];
-  evidenceStatements: Array<{ statement: string; sourceIds: string[] }>;
+  evidenceStatements: ClaimVerification[];
+  sourceDiscrepancies?: Array<{
+    sourcesCompared: string[];
+    differingAspect: "measurement_conditions" | "timestamp_drift" | "methodology" | "direct_contradiction" | "inconclusive";
+    explanation: string;
+  }>;
   uncertaintiesAndConflicts: string[];
   actionableSteps: string[];
   hasSufficientEvidence: boolean;
+  citationIntegrityScore?: number;
+  unsupportedClaimsCount?: number;
 };
 
 export type AgentTask = {

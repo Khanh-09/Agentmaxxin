@@ -6,6 +6,7 @@ import {
   registerTaskAbortController,
   unregisterTaskAbortController,
 } from "@/agent/tasks";
+import { validateCitationsAndAnalyzeEvidence } from "@/agent/citation-validator";
 
 /**
  * Executes a background task asynchronously outside the lifecycle of the HTTP request.
@@ -119,6 +120,12 @@ export async function executeBackgroundTask(params: {
     const durationMs = Date.now() - startTime;
     const hasSufficientEvidence = taskSources.some((s) => s.status === "retrieved");
 
+    // Comprehensive Citation Validation & Evidence Quality Assessment
+    const evidenceAudit = validateCitationsAndAnalyzeEvidence({
+      rawText: result.answer,
+      sources: taskSources,
+    });
+
     // Transition task to succeeded (guarded against cancelled state)
     updateTask(
       taskId,
@@ -129,22 +136,25 @@ export async function executeBackgroundTask(params: {
         sources: taskSources,
         report: {
           summary: result.answer.slice(0, 300) + (result.answer.length > 300 ? "..." : ""),
+          outcome: evidenceAudit.outcome,
           keyFindings: [
             "Đã kiểm chứng đối chiếu qua các nguồn dữ liệu thực tế.",
             `Tổng hợp thành công ${taskSources.filter((s) => s.status === "retrieved").length} nguồn tài liệu xác thực.`,
+            `Độ tin cậy trích dẫn (Citation Integrity Score): ${(evidenceAudit.citationIntegrityScore * 100).toFixed(0)}%`,
           ],
-          evidenceStatements: taskSources.map((s) => ({
-            statement: s.snippet || s.title,
-            sourceIds: [s.sourceId],
-          })),
-          uncertaintiesAndConflicts: !hasSufficientEvidence
-            ? ["Không tìm thấy đủ dữ liệu đáng tin cậy cho một số khía cạnh nghiên cứu."]
-            : [],
+          evidenceStatements: evidenceAudit.verifiedClaims,
+          sourceDiscrepancies: evidenceAudit.sourceDiscrepancies,
+          uncertaintiesAndConflicts:
+            evidenceAudit.outcome === "insufficient_evidence"
+              ? ["Không tìm thấy đủ dữ liệu đáng tin cậy cho một số khía cạnh nghiên cứu."]
+              : evidenceAudit.sourceDiscrepancies.map((d) => d.explanation),
           actionableSteps: [
             "Kiểm tra và mở các liên kết nguồn để xác thực chi tiết.",
             "Xuất báo cáo Markdown lưu trữ cho dự án.",
           ],
           hasSufficientEvidence,
+          citationIntegrityScore: evidenceAudit.citationIntegrityScore,
+          unsupportedClaimsCount: evidenceAudit.unsupportedClaimsCount,
         },
         steps: [
           { name: "Phân tích yêu cầu & Lập kế hoạch", status: "completed" },
