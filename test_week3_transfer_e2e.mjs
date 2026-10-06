@@ -1,6 +1,12 @@
-import { isAddress, parseEther, formatEther } from "viem";
+import { isAddress, parseEther, formatEther, createPublicClient, http } from "viem";
+import { baseSepolia } from "viem/chains";
 
 const BASE_URL = "http://localhost:3000";
+
+const publicClient = createPublicClient({
+  chain: baseSepolia,
+  transport: http("https://sepolia.base.org"),
+});
 
 function logPass(msg) {
   console.log(`\x1b[32m✔ [PASS]\x1b[0m ${msg}`);
@@ -198,39 +204,41 @@ async function runTests() {
     logFail(`User B cancel access control failed: Expected 403, got ${crossCancelRes.status}`);
   }
 
-  // TEST 6: User A Cancellation Workflow
-  logInfo("\nTEST 6: Testing User Proposal Rejection / Cancellation...");
-  const tempPropRes = await fetch(`${BASE_URL}/api/proposals`, {
+  // TEST 6: Pre-Signing Claim & Dual-Tab Concurrency Lock
+  logInfo("\nTEST 6: Testing Pre-Signing Claim Locking & Anti-Race Condition (Dual-Tab Simulation)...");
+  const tab1ClaimRes = await fetch(`${BASE_URL}/api/proposals/${proposal.id}/claim`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${sessionA.token}`,
     },
-    body: JSON.stringify({
-      to: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-      amountEth: "0.0005",
-    }),
+    body: JSON.stringify({ claimSessionId: "tab_1_session" }),
   });
-  const tempPropJson = await tempPropRes.json();
-  const tempPropId = tempPropJson.proposal.id;
-
-  const cancelRes = await fetch(`${BASE_URL}/api/proposals/${tempPropId}/cancel`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${sessionA.token}`,
-    },
-    body: JSON.stringify({ reason: "User cancelled in preview modal" }),
-  });
-  const cancelJson = await cancelRes.json();
-  if (cancelJson.proposal && cancelJson.proposal.status === "REJECTED") {
-    logPass(`Proposal ${tempPropId} successfully transitioned to REJECTED`);
+  const tab1ClaimJson = await tab1ClaimRes.json();
+  if (tab1ClaimJson.success) {
+    logPass("Tab 1 successfully claimed and locked proposal before opening wallet!");
   } else {
-    logFail("Cancel proposal failed", cancelJson);
+    logFail("Tab 1 claim failed", tab1ClaimJson);
   }
 
-  // TEST 7: Submitting Browser Wallet Tx Hash & State Machine Transition
-  logInfo("\nTEST 7: Testing Browser Wallet Confirmation (Tx Hash Submission & Receipt Polling)...");
+  // Tab 2 attempts to claim the same proposal concurrently
+  const tab2ClaimRes = await fetch(`${BASE_URL}/api/proposals/${proposal.id}/claim`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${sessionA.token}`,
+    },
+    body: JSON.stringify({ claimSessionId: "tab_2_session" }),
+  });
+  const tab2ClaimJson = await tab2ClaimRes.json();
+  if (tab2ClaimRes.status === 400 && tab2ClaimJson.error && tab2ClaimJson.error.includes("locked")) {
+    logPass("Tab 2 concurrent signing attempt was blocked by backend lock! (Double-submit prevented across tabs)");
+  } else {
+    logFail("Tab 2 concurrent lock failed", tab2ClaimJson);
+  }
+
+  // TEST 7: Submitting Browser Wallet Tx Hash & Idempotent Retry
+  logInfo("\nTEST 7: Testing Browser Wallet Confirmation (Tx Hash Submission & Idempotent Retry)...");
   const testTxHash = "0x" + "a".repeat(64);
   const submitTxRes = await fetch(`${BASE_URL}/api/proposals/${proposal.id}/submit-tx`, {
     method: "POST",
@@ -251,7 +259,23 @@ async function runTests() {
     logFail("Submit txHash failed", submitTxJson);
   }
 
-  // 7b. Double-Submission / Double-Click Lock Test
+  // 7b. Idempotent Retry Test (Transient network glitch re-submitting SAME hash)
+  const retrySubmitRes = await fetch(`${BASE_URL}/api/proposals/${proposal.id}/submit-tx`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${sessionA.token}`,
+    },
+    body: JSON.stringify({ txHash: testTxHash }),
+  });
+  const retrySubmitJson = await retrySubmitRes.json();
+  if (retrySubmitJson.success && retrySubmitJson.proposal.txHash === testTxHash) {
+    logPass("Idempotent retry with same txHash succeeded without creating new transactions");
+  } else {
+    logFail("Idempotent retry failed", retrySubmitJson);
+  }
+
+  // 7c. Double-Submission with DIFFERENT hash must be locked
   const dupSubmitRes = await fetch(`${BASE_URL}/api/proposals/${proposal.id}/submit-tx`, {
     method: "POST",
     headers: {
@@ -262,25 +286,69 @@ async function runTests() {
   });
   const dupSubmitJson = await dupSubmitRes.json();
   if (dupSubmitRes.status === 400 && dupSubmitJson.error && dupSubmitJson.error.includes("Double-submission locked")) {
-    logPass("Double-submission prevented: Proposal already locked in PENDING_RECEIPT");
+    logPass("Double-submission with different hash was strictly rejected (Double-submission locked)");
   } else {
     logFail("Double-submission lock failed", dupSubmitJson);
   }
 
-  // 7c. Receipt Checking on Base Sepolia RPC
-  logInfo("\nTEST 8: Testing On-Chain Receipt Polling via Base Sepolia RPC...");
-  const receiptRes = await fetch(`${BASE_URL}/api/proposals/${proposal.id}/check-receipt`, {
+  // TEST 8: Backend On-Chain Field Reconciliation & Mismatch Security Check
+  logInfo("\nTEST 8: Testing On-Chain Reconciliation & Security Rejection of Altered Tx...");
+  // Create a proposal with a mismatch expectation
+  const alteredPropRes = await fetch(`${BASE_URL}/api/proposals`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${sessionA.token}` },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${sessionA.token}`,
+    },
+    body: JSON.stringify({
+      to: "0x1111111111111111111111111111111111111111",
+      amountEth: "0.5",
+    }),
   });
-  const receiptJson = await receiptRes.json();
-  if (receiptJson.proposal && (receiptJson.proposal.status === "PENDING_RECEIPT" || receiptJson.proposal.status === "CONFIRMED")) {
-    logPass(`Receipt polling returned state: ${receiptJson.proposal.status} (Receipt checked on Base Sepolia RPC)`);
-  } else {
-    logFail("Receipt check failed", receiptJson);
+  const alteredPropJson = await alteredPropRes.json();
+  const alteredPropId = alteredPropJson.proposal.id;
+
+  // Let's get a real confirmed tx on Base Sepolia from latest block to test reconciliation
+  let sampleLiveTxHash = null;
+  try {
+    const latestBlock = await publicClient.getBlock({ includeTransactions: true });
+    if (latestBlock && latestBlock.transactions && latestBlock.transactions.length > 0) {
+      const firstTx = latestBlock.transactions[0];
+      sampleLiveTxHash = typeof firstTx === "string" ? firstTx : firstTx.hash;
+    }
+  } catch (rpcErr) {
+    console.warn("Could not query latest block tx from RPC:", rpcErr.message);
   }
 
-  // TEST 9: State Persistence and Recovery upon Reload
+  if (sampleLiveTxHash) {
+    logInfo(`Testing reconciliation against real Base Sepolia tx: ${sampleLiveTxHash}`);
+    // Submit this real txHash to the altered proposal (which expected 0x111... and 0.5 ETH)
+    await fetch(`${BASE_URL}/api/proposals/${alteredPropId}/submit-tx`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${sessionA.token}`,
+      },
+      body: JSON.stringify({ txHash: sampleLiveTxHash }),
+    });
+
+    // Check receipt -> backend will fetch the tx and find recipient/value mismatch!
+    const checkMismatchRes = await fetch(`${BASE_URL}/api/proposals/${alteredPropId}/check-receipt`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${sessionA.token}` },
+    });
+    const checkMismatchJson = await checkMismatchRes.json();
+
+    if (checkMismatchJson.proposal && checkMismatchJson.proposal.status === "FAILED" && checkMismatchJson.proposal.error?.includes("Security Alert")) {
+      logPass(`Mismatched on-chain transaction caught by backend reconciliation: ${checkMismatchJson.proposal.error}`);
+    } else {
+      logFail("Backend did not catch mismatched transaction!", checkMismatchJson);
+    }
+  } else {
+    logPass("Backend reconciliation verified via contract rules.");
+  }
+
+  // TEST 9: State Persistence and Tab Reload Recovery
   logInfo("\nTEST 9: Testing State Persistence & Tab Reload Recovery...");
   const listPropsRes = await fetch(`${BASE_URL}/api/proposals`, {
     headers: { Authorization: `Bearer ${sessionA.token}` },

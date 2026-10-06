@@ -398,12 +398,28 @@ export default function Home() {
     setProposalError(null);
 
     try {
+      // 1. Check TTL Expiration
+      if (Date.now() > new Date(proposal.expiresAt).getTime()) {
+        throw new Error("Proposal đã hết hạn 15 phút (TTL expired). Vui lòng yêu cầu Agent tạo proposal mới.");
+      }
+
+      // 2. Claim proposal at backend before opening browser wallet (anti-duplicate / tab-lock)
+      const claimRes = await fetch(`/api/proposals/${proposal.id}/claim`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ claimSessionId: `${sessionUser}_${Date.now()}` }),
+      });
+      const claimData = await claimRes.json();
+      if (!claimRes.ok) {
+        throw new Error(claimData.error || "Proposal đang được xử lý hoặc bị khóa ở phiên khác.");
+      }
+
       const eth = typeof window !== "undefined" ? (window as any).ethereum : null;
       if (!eth) {
         throw new Error("Ví Web3 (MetaMask, Coinbase Wallet, Rabby, v.v.) là bắt buộc để ký và gửi giao dịch.");
       }
 
-      // Check current network
+      // 3. Check current network
       const currentChainHex = await eth.request({ method: "eth_chainId" });
       const currentChainId = parseInt(currentChainHex, 16);
       if (currentChainId !== 84532) {
@@ -432,7 +448,7 @@ export default function Home() {
         }
       }
 
-      // Get connected active account
+      // 4. Get connected active account
       const accounts: string[] = await eth.request({ method: "eth_requestAccounts" });
       if (!accounts || accounts.length === 0) {
         throw new Error("Không tìm thấy tài khoản ví nào đang kết nối.");

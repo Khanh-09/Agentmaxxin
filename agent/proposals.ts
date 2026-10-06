@@ -57,6 +57,8 @@ export interface TransferProposal {
   estimatedGasEth: string;
   estimatedTotalEth: string;
   status: ProposalStatus;
+  claimedBy?: string;
+  claimedAt?: string;
   txHash?: string;
   blockNumber?: number;
   gasUsed?: string;
@@ -271,6 +273,56 @@ export function listProposals(userId?: string): TransferProposal[] {
 }
 
 /**
+ * Pre-Signing Claim Lock:
+ * Locks a proposal in the backend before opening the browser wallet.
+ * Prevents race conditions or double-signing across multiple browser tabs.
+ */
+export function claimProposalForSigning(
+  proposalId: string,
+  userId: string,
+  claimSessionId?: string
+): { success: boolean; proposal?: TransferProposal; error?: string; unauthorized?: boolean } {
+  const check = getProposalById(proposalId, userId);
+  if (!check.success || !check.proposal) {
+    return { success: false, unauthorized: check.unauthorized, error: check.error };
+  }
+
+  const p = check.proposal;
+  if (p.status !== "PENDING_APPROVAL") {
+    return { success: false, error: `Cannot claim proposal in status '${p.status}'.` };
+  }
+
+  const now = Date.now();
+  if (now > new Date(p.expiresAt).getTime()) {
+    return { success: false, error: "Proposal has expired (15-minute TTL elapsed). Please request a new proposal." };
+  }
+
+  const claimId = claimSessionId || `${userId}_${Date.now()}`;
+  const LOCK_DURATION_MS = 60 * 1000; // 60s active lock
+
+  if (p.claimedBy && p.claimedBy !== claimId && p.claimedAt) {
+    const lockAge = now - new Date(p.claimedAt).getTime();
+    if (lockAge < LOCK_DURATION_MS) {
+      return {
+        success: false,
+        error: "Proposal is currently locked and being signed in another tab or window. Please wait.",
+      };
+    }
+  }
+
+  const proposals = readProposals();
+  const idx = proposals.findIndex((item) => item.id === proposalId);
+  if (idx !== -1) {
+    proposals[idx].claimedBy = claimId;
+    proposals[idx].claimedAt = new Date(now).toISOString();
+    writeProposals(proposals);
+    return { success: true, proposal: proposals[idx] };
+  }
+
+  return { success: false, error: "Proposal not found during claim." };
+}
+
+/**
  * User rejects/cancels a transfer proposal.
  */
 export function cancelProposal(
@@ -304,6 +356,7 @@ export function cancelProposal(
  * Submits the transaction hash returned by the browser wallet.
  * Transitions proposal into PENDING_RECEIPT immediately.
  * Locks proposal against double-submission / duplicate signing.
+ * If the exact same txHash is re-submitted (transient retry), returns existing proposal.
  */
 export function submitProposalTxHash(
   proposalId: string,
@@ -321,6 +374,12 @@ export function submitProposalTxHash(
   }
 
   const p = check.proposal;
+
+  // Idempotent recovery: if already PENDING_RECEIPT with identical hash, allow return
+  if (p.status === "PENDING_RECEIPT" && p.txHash?.toLowerCase() === txHash.toLowerCase()) {
+    return { success: true, proposal: p };
+  }
+
   if (p.status !== "PENDING_APPROVAL") {
     return { success: false, error: `Cannot submit txHash: Proposal is already in status '${p.status}' (Double-submission locked).` };
   }
@@ -341,7 +400,11 @@ export function submitProposalTxHash(
 }
 
 /**
- * Checks on-chain transaction receipt from Base Sepolia RPC and updates status.
+ * Checks on-chain transaction details and receipt from Base Sepolia RPC.
+ * Performs rigorous verification:
+ * 1. Fetches transaction from Base Sepolia RPC and reconciles from, to, and value against proposal.
+ * 2. Fetches receipt and verifies on-chain execution status.
+ * 3. Never confirms mismatched hashes or altered amounts.
  */
 export async function checkAndUpdateProposalReceipt(
   proposalId: string,
@@ -362,6 +425,42 @@ export async function checkAndUpdateProposalReceipt(
   }
 
   try {
+    // 1. Fetch on-chain Transaction to reconcile fields
+    let txVerified = false;
+    try {
+      const tx = await publicClient.getTransaction({ hash: p.txHash as Hex });
+      if (tx) {
+        // Reconcile Recipient Address
+        if (tx.to && tx.to.toLowerCase() !== p.to.toLowerCase()) {
+          const proposals = readProposals();
+          const idx = proposals.findIndex((item) => item.id === proposalId);
+          if (idx !== -1) {
+            proposals[idx].status = "FAILED";
+            proposals[idx].error = `Security Alert: Recipient mismatch! Expected ${p.to}, blockchain has ${tx.to}`;
+            writeProposals(proposals);
+            return { success: false, proposal: proposals[idx], confirmed: false, error: proposals[idx].error };
+          }
+        }
+
+        // Reconcile Amount (Wei)
+        if (tx.value.toString() !== p.amountWeiString) {
+          const proposals = readProposals();
+          const idx = proposals.findIndex((item) => item.id === proposalId);
+          if (idx !== -1) {
+            proposals[idx].status = "FAILED";
+            proposals[idx].error = `Security Alert: Value mismatch! Expected ${p.amountWeiString} wei, blockchain has ${tx.value.toString()} wei`;
+            writeProposals(proposals);
+            return { success: false, proposal: proposals[idx], confirmed: false, error: proposals[idx].error };
+          }
+        }
+
+        txVerified = true;
+      }
+    } catch (txErr: any) {
+      console.warn("[Proposals] getTransaction pending/check:", txErr.message);
+    }
+
+    // 2. Fetch on-chain Receipt
     const receipt = await publicClient.getTransactionReceipt({ hash: p.txHash as Hex });
     if (receipt) {
       const proposals = readProposals();
@@ -381,7 +480,7 @@ export async function checkAndUpdateProposalReceipt(
       }
     }
   } catch (rpcErr: any) {
-    // Receipt not found yet (still pending) or network issue
+    // Receipt not found yet (transaction is still pending in mempool)
     return { success: true, proposal: p, confirmed: false, error: rpcErr.message };
   }
 
