@@ -10,6 +10,7 @@
 > **AgentMaxx** is an autonomous multi-domain AI agent combining **Base Sepolia L2 Web3 execution**, **Human-In-The-Loop Native Transfer Proposals**, **Dual-Wallet Architecture**, **Decoupled Asynchronous Task Workers**, **Multi-Domain RAG**, and **In-Context Self-Training (DSPy-style reflection & active learning)**.
 
 - **GitHub Repository**: [https://github.com/Khanh-09/Agentmaxxin](https://github.com/Khanh-09/Agentmaxxin)
+- **Demo Walkthrough Video**: [Google Drive Demo Video (90–120s)](https://drive.google.com/file/d/1q71QAv8h7FJPRd2h5O-KHGdTYW4YUhJV/view?usp=sharing)
 - **Target Network**: Base Sepolia L2 Testnet (`chainId: 84532`, RPC: `https://sepolia.base.org`, Explorer: `https://sepolia.basescan.org`)
 - **Engine Core**: Google Gemini 3.5 Flash Lite + LangGraph.js StateGraph + viem
 
@@ -281,6 +282,8 @@ node test_live_integration.mjs
 ---
 
 ## 🎬 90–120s Demonstration Walkthrough Script
+
+> 📹 **Watch Full Demo Video**: [https://drive.google.com/file/d/1q71QAv8h7FJPRd2h5O-KHGdTYW4YUhJV/view?usp=sharing](https://drive.google.com/file/d/1q71QAv8h7FJPRd2h5O-KHGdTYW4YUhJV/view?usp=sharing)
 
 | Time | Screen / Action | Narrative |
 | :--- | :--- | :--- |
