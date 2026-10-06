@@ -1,12 +1,12 @@
 import { getAuthenticatedSession } from "@/agent/auth";
 import {
   createOrGetTask,
-  updateTask,
   listTasksByProject,
   getTaskById,
 } from "@/agent/tasks";
+import { executeBackgroundTask } from "@/agent/task-worker";
 
-// GET /api/tasks?projectId=... -> List tasks for verified user session
+// GET /api/tasks?projectId=... | taskId=... -> List or poll task status
 export async function GET(req: Request) {
   try {
     const session = getAuthenticatedSession(req);
@@ -15,9 +15,9 @@ export async function GET(req: Request) {
     const taskId = searchParams.get("taskId");
 
     if (taskId) {
-      const { task, unauthorized } = getTaskById(taskId, session.userId);
+      const { task, unauthorized } = getTaskById(taskId, session?.userId);
       if (unauthorized) {
-        return Response.json({ error: "Access denied." }, { status: 403 });
+        return Response.json({ error: "Access denied. You do not own this task." }, { status: 403 });
       }
       if (!task) {
         return Response.json({ error: "Task not found." }, { status: 404 });
@@ -26,7 +26,7 @@ export async function GET(req: Request) {
     }
 
     if (projectId) {
-      const tasks = listTasksByProject(projectId, session.userId);
+      const tasks = listTasksByProject(projectId, session?.userId || "guest_default");
       return Response.json({ tasks });
     }
 
@@ -36,25 +36,65 @@ export async function GET(req: Request) {
   }
 }
 
-// POST /api/tasks { projectId, objective, idempotencyKey } -> Create or dedup a task
+// POST /api/tasks { projectId, objective, messages, idempotencyKey } -> Async non-blocking task creation
 export async function POST(req: Request) {
   try {
     const session = getAuthenticatedSession(req);
     const body = await req.json();
+    const { projectId, objective, messages, idempotencyKey } = body;
 
-    if (!body.objective) {
-      return Response.json({ error: "Objective is required." }, { status: 400 });
+    if (!objective && (!messages || messages.length === 0)) {
+      return Response.json({ error: "Objective or messages array is required." }, { status: 400 });
     }
 
-    const projectId = body.projectId || `proj_${Date.now()}`;
-    const { task, isDuplicate } = createOrGetTask({
-      projectId,
-      userId: session.userId,
-      objective: body.objective,
-      idempotencyKey: body.idempotencyKey,
+    const effectiveMessages = messages || [{ role: "user", text: objective }];
+    const effectiveObjective = objective || effectiveMessages[effectiveMessages.length - 1].text;
+    const effectiveProjId = projectId || `proj_${Date.now()}`;
+
+    // Atomic creation with idempotency and payload conflict detection
+    const result = createOrGetTask({
+      projectId: effectiveProjId,
+      userId: session?.userId || "guest_default",
+      objective: effectiveObjective,
+      idempotencyKey,
+      payload: effectiveMessages,
     });
 
-    return Response.json({ success: true, task, isDuplicate });
+    if (result.conflict) {
+      return Response.json(
+        { error: result.error || "Idempotency key mismatch: payload differs from original request." },
+        { status: 409 }
+      );
+    }
+
+    const { task, isDuplicate } = result;
+    if (!task) {
+      return Response.json({ error: "Failed to initialize task." }, { status: 500 });
+    }
+
+    // If new task, dispatch background execution asynchronously (decoupled from HTTP request)
+    if (!isDuplicate && task.status === "queued") {
+      const baseUrl = new URL(req.url).origin;
+      // Fire and forget - background worker executes independently
+      executeBackgroundTask({
+        taskId: task.id,
+        projectId: effectiveProjId,
+        userId: session?.userId || "guest_default",
+        messages: effectiveMessages,
+        baseUrl,
+      }).catch((workerErr) => {
+        console.error(`[Worker Error] Task ${task.id} failure:`, workerErr);
+      });
+    }
+
+    return Response.json({
+      success: true,
+      taskId: task.id,
+      task,
+      status: task.status,
+      isDuplicate,
+      projectId: effectiveProjId,
+    });
   } catch (err: any) {
     return Response.json({ error: err.message }, { status: 500 });
   }

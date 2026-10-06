@@ -30,7 +30,7 @@ export type GraphState = {
 
 export async function runGraph(
   history: ChatMessage[],
-  ctx: { baseUrl: string }
+  ctx: { baseUrl: string; abortSignal?: AbortSignal }
 ): Promise<{
   answer: string;
   steps: Step[];
@@ -38,6 +38,10 @@ export async function runGraph(
   evaluation: EvaluationResult;
   runId: string;
 }> {
+  if (ctx.abortSignal?.aborted) {
+    throw new Error("Task execution cancelled by user.");
+  }
+
   const lastUserMsg = [...history].reverse().find((m) => m.role === "user")?.text || "";
 
   // ─── STAGE 1: ROUTE NODE ───
@@ -94,6 +98,10 @@ ${route.systemInstructionAddendum}
   let finalAnswer = "";
 
   for (let i = 0; i < MAX_STEPS; i++) {
+    if (ctx.abortSignal?.aborted) {
+      throw new Error("Task execution cancelled by user.");
+    }
+
     const response = await ai.models.generateContent({
       model: MODEL,
       contents,
@@ -111,6 +119,10 @@ ${route.systemInstructionAddendum}
       },
     });
 
+    if (ctx.abortSignal?.aborted) {
+      throw new Error("Task execution cancelled by user.");
+    }
+
     const calls = response.functionCalls ?? [];
     if (calls.length === 0) {
       finalAnswer = response.text ?? "";
@@ -121,6 +133,10 @@ ${route.systemInstructionAddendum}
     const results: Part[] = [];
 
     for (const call of calls) {
+      if (ctx.abortSignal?.aborted) {
+        throw new Error("Task execution cancelled by user.");
+      }
+
       const tool = tools.find((t) => t.name === call.name);
       let result: unknown;
       let error = false;

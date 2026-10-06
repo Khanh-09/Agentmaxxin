@@ -1,5 +1,140 @@
 [
   {
+    "id": "task_1791270342547_x7x0a",
+    "projectId": "proj_1791270342547",
+    "userId": "guest_4c1c9dd552ce4886",
+    "objective": "Phân tích bảo mật chuyên sâu nhiều bước Solidity",
+    "status": "cancelled",
+    "payloadHash": "7b546069bce04b72b6aff16b62f06abcbf0f33314c98971af7ccbe0e8f70076b",
+    "steps": [
+      {
+        "name": "Phân tích yêu cầu & Lập kế hoạch",
+        "status": "pending"
+      },
+      {
+        "name": "Truy vấn Tools & Thu thập dữ liệu",
+        "status": "pending"
+      },
+      {
+        "name": "Tổng hợp thông tin & Kiểm chứng nguồn",
+        "status": "pending"
+      },
+      {
+        "name": "Đánh giá chất lượng & Trả kết quả",
+        "status": "pending"
+      }
+    ],
+    "sideEffects": [],
+    "unreversibleActions": [],
+    "createdAt": "2026-10-06T07:05:42.547Z",
+    "startedAt": "2026-10-06T07:05:42.548Z",
+    "error": "Tác vụ đã được hủy bởi người dùng.",
+    "completedAt": "2026-10-06T07:05:43.036Z"
+  },
+  {
+    "id": "task_1791270342496_rgoyj",
+    "projectId": "proj_1791270342495",
+    "userId": "guest_4c1c9dd552ce4886",
+    "objective": "Tác vụ đồng thời",
+    "status": "succeeded",
+    "idempotencyKey": "shared_idem_1791270342482",
+    "payloadHash": "d48728ee8f5ae6af563251cb028f9efa699480a2fb66a522cb73fa020e18800f",
+    "steps": [],
+    "sideEffects": [],
+    "unreversibleActions": [],
+    "createdAt": "2026-10-06T07:05:42.496Z",
+    "startedAt": "2026-10-06T07:05:42.497Z",
+    "result": "Chào **Khánh**! Chúc bạn một ngày làm việc tràn đầy năng lượng và hiệu quả nhé! \n\n*(Nhắc nhỏ: Thời tiết đẹp nhất cho ngày hôm nay là **\"Trời trong, mát mẻ, không quá nắng cũng không quá mưa\"** như sở thích của bạn đó!)* ✨\n\nVề yêu cầu **\"Tác vụ đồng thời\" (Concurrent Tasks)** trong lập trình và kiến trúc hệ thống, dưới đây là tổng quan cấu trúc rõ ràng cùng các bước hành động tiếp theo:\n\n---\n\n### 1. Phân tách Sự thật & Phân tích (Facts & Inferences)\n* **Thực tế (Facts):**\n  * Tác vụ đồng thời (Concurrency) là khả năng xử lý nhiều tác vụ chồng chéo lên nhau trong cùng một khoảng thời gian (không nhất thiết phải chạy cùng một khoảnh khắc vật lý như Parallelism).\n  * Trong mô hình AI Agent và hệ thống Backend hiện đại, xử lý đồng thời giúp tối ưu hóa thời gian chờ (I/O bound) như gọi API, truy vấn cơ sở dữ liệu hoặc tương tác smart contract trên blockchain.\n* **Suy luận (Inferences):**\n  * Việc áp dụng đồng thời bất đồng bộ (`async/await`, Promise.all trong JavaScript, `asyncio` trong Python) giúp tăng tốc độ xử lý hệ thống đáng kể và nâng cao trải nghiệm người dùng (UX).\n\n---\n\n### 2. Các mô hình xử lý đồng thời phổ biến\n1. **Asynchronous I/O (Event Loop):** Phù hợp cho các tác vụ chờ mạng hoặc database (Node.js, Python asyncio).\n2. **Multi-threading:** Phù hợp cho tác vụ chia sẻ tài nguyên bộ nhớ chung (cần cẩn trọng với điều kiện tranh chấp - race conditions).\n3. **Multi-processing:** Phù hợp cho các bài toán tính toán nặng (CPU bound).\n\n---\n\n### 3. Bước hành động tiếp theo (Next Steps)\nĐể tôi hỗ trợ bạn chính xác nhất, bạn muốn triển khai hoặc tìm hiểu sâu hơn về phần nào?\n1. **Viết mã nguồn mẫu (Code Snippet):** Xử lý tác vụ đồng thời bằng JavaScript/TypeScript hoặc Python (`Promise.all` hoặc `asyncio`).\n2. **Kiến trúc AI Agent:** Cách AI Agent quản lý và gọi nhiều công cụ (tools) đồng thời theo mô hình ReAct.\n3. **Tối ưu hóa Task Queue:** Xây dựng hàng đợi tác vụ (Redis/BullMQ) cho hệ thống phân tán.\n\nBạn hãy cho tôi biết bạn muốn đi sâu vào hướng nào nhé, Khánh! 🚀",
+    "durationMs": 6587,
+    "completedAt": "2026-10-06T07:05:49.085Z"
+  },
+  {
+    "id": "task_1791270335102_uwphk",
+    "projectId": "proj_1791270335102",
+    "userId": "guest_4c1c9dd552ce4886",
+    "objective": "Tóm tắt 1 câu về Optimism Superchain",
+    "status": "succeeded",
+    "payloadHash": "09f2eb4cff20cbc05d46b92af3eb308955dfd0d35e4fa66909f11807290736b9",
+    "steps": [],
+    "sideEffects": [],
+    "unreversibleActions": [],
+    "createdAt": "2026-10-06T07:05:35.102Z",
+    "startedAt": "2026-10-06T07:05:35.103Z",
+    "result": "Optimism Superchain là mạng lưới các Layer 2 (OP Chains) kết nối với nhau thông qua hạ tầng chia sẻ chung, giúp tối ưu hóa khả năng tương tác, bảo mật và mở rộng toàn cầu cho Ethereum.",
+    "durationMs": 6490,
+    "completedAt": "2026-10-06T07:05:41.594Z"
+  },
+  {
+    "id": "task_1791270316267_8tpzc",
+    "projectId": "proj_1791270316266",
+    "userId": "guest_d634e147dc21416f",
+    "objective": "Phân tích bảo mật chuyên sâu nhiều bước Solidity",
+    "status": "cancelled",
+    "payloadHash": "7b546069bce04b72b6aff16b62f06abcbf0f33314c98971af7ccbe0e8f70076b",
+    "steps": [
+      {
+        "name": "Phân tích yêu cầu & Lập kế hoạch",
+        "status": "pending"
+      },
+      {
+        "name": "Truy vấn Tools & Thu thập dữ liệu",
+        "status": "pending"
+      },
+      {
+        "name": "Tổng hợp thông tin & Kiểm chứng nguồn",
+        "status": "pending"
+      },
+      {
+        "name": "Đánh giá chất lượng & Trả kết quả",
+        "status": "pending"
+      }
+    ],
+    "sideEffects": [],
+    "unreversibleActions": [],
+    "createdAt": "2026-10-06T07:05:16.267Z",
+    "startedAt": "2026-10-06T07:05:16.268Z",
+    "error": "Tác vụ đã được hủy bởi người dùng.",
+    "completedAt": "2026-10-06T07:05:16.987Z",
+    "recoveredFromCrash": true
+  },
+  {
+    "id": "task_1791270316213_kd77k",
+    "projectId": "proj_1791270316213",
+    "userId": "guest_d634e147dc21416f",
+    "objective": "Tác vụ đồng thời",
+    "status": "succeeded",
+    "idempotencyKey": "shared_idem_1791270315994",
+    "payloadHash": "d48728ee8f5ae6af563251cb028f9efa699480a2fb66a522cb73fa020e18800f",
+    "steps": [],
+    "sideEffects": [],
+    "unreversibleActions": [],
+    "createdAt": "2026-10-06T07:05:16.213Z",
+    "startedAt": "2026-10-06T07:05:16.214Z",
+    "error": "Tác vụ bị gián đoạn do server restart. Sẵn sàng thử lại.",
+    "completedAt": "2026-10-06T07:05:26.330Z",
+    "recoveredFromCrash": true,
+    "result": "Chào Khanh! **Tác vụ đồng thời (Concurrent Tasks)** trong lập trình và kiến trúc hệ thống là khả năng xử lý nhiều công việc hoặc tiến trình cùng một lúc hoặc xen kẽ nhau nhằm tối ưu hóa hiệu năng, giảm thời gian chờ và tận dụng tối đa tài nguyên phần cứng.\n\nDưới đây là tóm tắt nhanh và các bước hành động tiếp theo dành riêng cho bạn:\n\n---\n\n### 1. Phân biệt các khái niệm chính (Facts & Inferences)\n*   **Concurrence (Đồng thời):** Cấu trúc chương trình có thể xử lý nhiều tác vụ bằng cách chuyển đổi qua lại (interleaving) — thường chạy trên một CPU core (Single-core Multi-tasking).\n*   **Parallelism (Song song):** Các tác vụ thực sự chạy tại cùng một thời điểm vật lý — yêu cầu CPU đa nhân (Multi-core / Multi-CPU).\n*   **Asynchronous (Bất đồng bộ):** Mô hình lập trình không chặn (non-blocking), cho phép chương trình tiếp tục làm việc khác trong khi chờ kết quả từ I/O (network, database, file read/write).\n\n---\n\n### 2. Thử thách dữ liệu / Gợi ý ứng dụng\n*Hiện tại chưa có đủ dữ liệu đáng tin cậy về* hệ thống cụ thể mà bạn muốn áp dụng tác vụ đồng thời (ví dụ: ngôn ngữ Python, JavaScript/Node.js, Go, hay trên Smart Contract Solidity). \n\n---\n\n### 3. Next Steps (Các bước hành động tiếp theo)\n1.  **Xác định công nghệ:** Cho mình biết bạn muốn viết tác vụ đồng thời bằng ngôn ngữ nào (Python `asyncio`, JavaScript `Promise`, Go `Goroutines`, v.v.).\n2.  **Mô tả bài toán:** Bạn đang cần xử lý bài toán gì (ví dụ: gọi nhiều API cùng lúc, quét dữ liệu on-chain, hay xử lý hàng đợi user)?\n3.  **Tạo Task mới:** Bạn có muốn mình tạo một Task trong danh sách việc cần làm (`manage_task_todo`) để lên kế hoạch triển khai không?",
+    "durationMs": 10115
+  },
+  {
+    "id": "task_1791270301970_fvr2f",
+    "projectId": "proj_1791270301968",
+    "userId": "guest_d634e147dc21416f",
+    "objective": "Tóm tắt 1 câu về Optimism Superchain",
+    "status": "succeeded",
+    "payloadHash": "09f2eb4cff20cbc05d46b92af3eb308955dfd0d35e4fa66909f11807290736b9",
+    "steps": [],
+    "sideEffects": [],
+    "unreversibleActions": [],
+    "createdAt": "2026-10-06T07:05:01.970Z",
+    "startedAt": "2026-10-06T07:05:01.971Z",
+    "error": "Tác vụ bị gián đoạn do server restart. Sẵn sàng thử lại.",
+    "completedAt": "2026-10-06T07:05:15.940Z",
+    "recoveredFromCrash": true,
+    "result": "**Optimism Superchain** là một mạng lưới blockchain Layer 2 kết nối và hợp nhất nhiều optimistic rollup (OP Chains) thông qua chuẩn bảo mật chung và khả năng tương interoperability mượt mà.",
+    "durationMs": 13967
+  },
+  {
     "id": "task_1791269915818_z4q41",
     "projectId": "proj_1791269913281_yvex",
     "userId": "guest_alice_researcher",

@@ -372,7 +372,7 @@ export default function Home() {
     }
   }
 
-  /** Connect User's Browser Web3 Wallet (MetaMask / Coinbase / Rabby) */
+  /** Connect User's Browser Web3 Wallet with Cryptographic Signature Proof */
   async function connectBrowserWallet() {
     const eth = (window as any)?.ethereum;
     if (!eth) {
@@ -385,9 +385,42 @@ export default function Home() {
       if (accounts && accounts[0]) {
         const acc = accounts[0];
         setUserAccount(acc);
-        const newTok = await initSession(acc);
-        if (newTok) {
-          loadProjects(newTok);
+
+        // 1. Get challenge template from server
+        const sessionRes = await fetch("/api/auth/session");
+        const sessionData = await sessionRes.json();
+        const challengeMessage =
+          sessionData.challengeTemplate ||
+          `Sign in to AgentMaxx with challenge: ${Date.now()} at timestamp: ${Date.now()}`;
+
+        // 2. Request EIP-191 personal signature from user wallet
+        let signature = "";
+        try {
+          signature = await eth.request({
+            method: "personal_sign",
+            params: [challengeMessage, acc],
+          });
+        } catch (sigErr: any) {
+          console.warn("User declined signature, falling back to guest session:", sigErr);
+        }
+
+        // 3. Verify signature on backend
+        if (signature) {
+          const authRes = await fetch("/api/auth/session", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              address: acc,
+              message: challengeMessage,
+              signature,
+            }),
+          });
+          const authData = await authRes.json();
+          if (authData.token) {
+            setSessionToken(authData.token);
+            setSessionUser(authData.userId);
+            loadProjects(authData.token);
+          }
         }
 
         try {
@@ -446,82 +479,105 @@ export default function Home() {
     const idempotencyKey = `idem_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const effectiveProjId = currentProjectId || `proj_${Date.now()}`;
 
-    const initialTask: AgentTask = {
-      id: `task_${Date.now()}`,
-      projectId: effectiveProjId,
-      userId: sessionUser,
-      objective: text,
-      status: "running",
-      idempotencyKey,
-      startedAt: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
-    };
-    setCurrentTask(initialTask);
-
-    const controller = new AbortController();
-    abortControllerRef.current = controller;
-
     try {
-      const res = await fetch("/api/agent", {
+      // 1. Post to async task endpoint (returns immediately < 150ms)
+      const res = await fetch("/api/tasks", {
         method: "POST",
         headers: getAuthHeaders(),
         body: JSON.stringify({
-          messages: history.filter((m) => !m.error).map(({ role, text }) => ({ role, text })),
           projectId: effectiveProjId,
+          objective: text,
+          messages: history.filter((m) => !m.error).map(({ role, text }) => ({ role, text })),
           idempotencyKey,
         }),
-        signal: controller.signal,
       });
       const data = await res.json();
-      const updatedMessages: Message[] = [
-        ...history,
-        data.error
-          ? { role: "agent", text: data.error, error: true }
-          : { role: "agent", text: data.answer, steps: data.steps, domain: data.domain },
-      ];
-      setMessages(updatedMessages);
-
-      if (data.task) {
-        setCurrentTask(data.task);
-        autoSaveProject(updatedMessages, data.projectId || effectiveProjId, currentProjectStatus, data.task.id, data.task.status);
-      } else {
-        autoSaveProject(updatedMessages, effectiveProjId, currentProjectStatus);
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to create task");
       }
 
-      loadWallet();
-      loadTraining();
-      loadMemories();
+      const taskId = data.taskId;
+      setCurrentTask(data.task);
+      if (!currentProjectId) {
+        setCurrentProjectId(effectiveProjId);
+      }
+
+      // 2. Poll for real background task progress
+      const pollInterval = 900;
+      const maxPolls = 100;
+      let polls = 0;
+
+      const poll = async () => {
+        polls++;
+        try {
+          const taskRes = await fetch(`/api/tasks/${taskId}`, { headers: getAuthHeaders() });
+          const taskJson = await taskRes.json();
+          if (taskJson.task) {
+            const t: AgentTask = taskJson.task;
+            setCurrentTask(t);
+
+            if (t.status === "succeeded") {
+              const updatedMessages: Message[] = [
+                ...history,
+                { role: "agent", text: t.result || "", steps: t.steps, domain: "research" },
+              ];
+              setMessages(updatedMessages);
+              autoSaveProject(updatedMessages, effectiveProjId, currentProjectStatus, t.id, t.status);
+              setThinking(false);
+              loadWallet();
+              loadTraining();
+              loadMemories();
+              return;
+            }
+
+            if (t.status === "failed" || t.status === "interrupted") {
+              const updatedMessages: Message[] = [
+                ...history,
+                { role: "agent", text: t.error || "Tác vụ thất bại.", error: true },
+              ];
+              setMessages(updatedMessages);
+              autoSaveProject(updatedMessages, effectiveProjId, currentProjectStatus, t.id, t.status);
+              setThinking(false);
+              return;
+            }
+
+            if (t.status === "cancelled") {
+              const sideEffectsText =
+                t.sideEffects && t.sideEffects.length > 0
+                  ? `\n\n**Các thao tác đã thực hiện trước khi hủy:**\n${t.sideEffects.map((s) => `- ${s}`).join("\n")}`
+                  : "";
+              const updatedMessages: Message[] = [
+                ...history,
+                { role: "agent", text: `⏹️ Tác vụ đã được hủy bởi người dùng.${sideEffectsText}`, error: false },
+              ];
+              setMessages(updatedMessages);
+              autoSaveProject(updatedMessages, effectiveProjId, currentProjectStatus, t.id, t.status);
+              setThinking(false);
+              return;
+            }
+          }
+        } catch (pollErr) {
+          console.error("Polling error:", pollErr);
+        }
+
+        if (polls < maxPolls && thinking) {
+          setTimeout(poll, pollInterval);
+        } else {
+          setThinking(false);
+        }
+      };
+
+      setTimeout(poll, pollInterval);
     } catch (err: any) {
-      if (err.name === "AbortError") {
-        const updatedMessages: Message[] = [
-          ...history,
-          { role: "agent", text: "⏹️ Tác vụ đã được hủy bởi người dùng.", error: false },
-        ];
-        setMessages(updatedMessages);
-        if (currentTask) {
-          const cancelledTask: AgentTask = { ...currentTask, status: "cancelled", completedAt: new Date().toISOString() };
-          setCurrentTask(cancelledTask);
-          autoSaveProject(updatedMessages, effectiveProjId, currentProjectStatus, cancelledTask.id, "cancelled");
-        }
-      } else {
-        setMessages((m) => [
-          ...m,
-          { role: "agent", text: "Could not reach the server. Is `npm run dev` still running?", error: true },
-        ]);
-        if (currentTask) {
-          setCurrentTask({ ...currentTask, status: "failed", error: String(err) });
-        }
-      }
+      setMessages((m) => [
+        ...m,
+        { role: "agent", text: `Lỗi khởi tạo tác vụ: ${err.message}`, error: true },
+      ]);
+      setThinking(false);
     }
-    setThinking(false);
-    abortControllerRef.current = null;
   }
 
   async function abortCurrentTask() {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
-    }
     if (currentTask?.id) {
       try {
         await fetch(`/api/tasks/${currentTask.id}/cancel`, {
@@ -589,22 +645,27 @@ export default function Home() {
     setUploading(false);
   }
 
-  /** Run Access Control & Security Tests */
-  async function runAccessControlTest(testType: "user_b_cross_access" | "spoof_client_address") {
+  /** Run Access Control & Reliability Tests */
+  async function runAccessControlTest(
+    testType:
+      | "user_b_cross_access"
+      | "spoof_client_address"
+      | "concurrent_same_key"
+      | "payload_conflict"
+      | "fake_wallet_sig"
+  ) {
     setTestingSecurity(true);
     setSecurityTestResult(null);
     try {
       if (testType === "user_b_cross_access") {
         const targetProjId = currentProjectId || projects[0]?.id || "proj_sample_alpha";
-        // Create an untrusted/different user token for User B
         const userBRes = await fetch("/api/auth/session", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ guestId: "attacker_user_b" }),
+          body: JSON.stringify({}),
         });
         const userBData = await userBRes.json();
 
-        // Attempt to fetch User A's project using User B's token
         const attackRes = await fetch(`/api/projects/${targetProjId}`, {
           headers: { Authorization: `Bearer ${userBData.token}` },
         });
@@ -624,29 +685,98 @@ export default function Home() {
               ? "✅ Dự án không tồn tại hoặc đã được cách ly hoàn toàn (HTTP 404)."
               : "❌ LỖI: Server trả về trạng thái không mong muốn.",
         });
-      } else if (testType === "spoof_client_address") {
-        // Attempt to pass arbitrary spoofed userId in POST body without valid signed session
-        const spoofedRes = await fetch("/api/projects", {
+      } else if (testType === "concurrent_same_key") {
+        const sharedKey = `shared_idem_${Date.now()}`;
+        const p1 = fetch("/api/tasks", {
           method: "POST",
           headers: getAuthHeaders(),
           body: JSON.stringify({
-            userId: "0xSPOOFED_VICTIM_ADDRESS_000000000000000000",
-            messages: [{ role: "user", text: "Spoofed attack payload" }],
+            objective: "Tác vụ đồng thời A",
+            idempotencyKey: sharedKey,
+            messages: [{ role: "user", text: "Tác vụ đồng thời A" }],
           }),
-        });
-        const spoofedJson = await spoofedRes.json();
+        }).then((r) => r.json());
+
+        const p2 = fetch("/api/tasks", {
+          method: "POST",
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            objective: "Tác vụ đồng thời A",
+            idempotencyKey: sharedKey,
+            messages: [{ role: "user", text: "Tác vụ đồng thời A" }],
+          }),
+        }).then((r) => r.json());
+
+        const [r1, r2] = await Promise.all([p1, p2]);
+        const sameTask = r1.taskId === r2.taskId;
 
         setSecurityTestResult({
-          title: "Kiểm tra 2: Client tự gửi User Address giả mạo",
-          clientSentUserId: "0xSPOOFED_VICTIM_ADDRESS_000000000000000000",
-          actualAssignedUserId: spoofedJson.project?.userId,
-          httpStatus: spoofedRes.status,
-          responseBody: spoofedJson,
-          passed: spoofedJson.project?.userId === sessionUser,
+          title: "Kiểm tra 2: Hai request đồng thời cùng Idempotency Key",
+          req1TaskId: r1.taskId,
+          req2TaskId: r2.taskId,
+          isDuplicateReported: r2.isDuplicate || r1.isDuplicate,
+          passed: sameTask,
+          explanation: sameTask
+            ? `✅ Cả 2 request đồng thời đều nhận cùng Task ID (${r1.taskId}). Không có tác vụ trùng nào bị khởi tạo!`
+            : "❌ LỖI: Tạo trùng 2 tác vụ khác nhau.",
+          responseBody: { request1: r1, request2: r2 },
+        });
+      } else if (testType === "payload_conflict") {
+        const conflictKey = `conflict_key_${Date.now()}`;
+        // Step 1: Request with initial payload
+        await fetch("/api/tasks", {
+          method: "POST",
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            objective: "Nội dung gốc ban đầu",
+            idempotencyKey: conflictKey,
+            messages: [{ role: "user", text: "Nội dung gốc ban đầu" }],
+          }),
+        });
+
+        // Step 2: Request with SAME key but DIFFERENT payload
+        const res2 = await fetch("/api/tasks", {
+          method: "POST",
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            objective: "NỘI DUNG HOÀN TOÀN KHÁC NHAU",
+            idempotencyKey: conflictKey,
+            messages: [{ role: "user", text: "NỘI DUNG HOÀN TOÀN KHÁC NHAU" }],
+          }),
+        });
+        const json2 = await res2.json();
+
+        setSecurityTestResult({
+          title: "Kiểm tra 3: Cùng Idempotency Key nhưng khác nội dung payload",
+          httpStatus: res2.status,
+          passed: res2.status === 409,
           explanation:
-            spoofedJson.project?.userId === sessionUser
-              ? `✅ Backend đã phớt lờ userId do client gửi và gán chính xác theo phiên xác thực HMAC (${sessionUser}).`
-              : "❌ LỖI: Server chấp nhận userId từ client.",
+            res2.status === 409
+              ? "✅ Backend đã phát hiện xung đột và trả về HTTP 409 Conflict chính xác!"
+              : "❌ LỖI: Backend không phát hiện được xung đột payload.",
+          responseBody: json2,
+        });
+      } else if (testType === "fake_wallet_sig") {
+        const fakeSigRes = await fetch("/api/auth/session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            address: "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
+            message: "Sign in to AgentMaxx challenge: 12345",
+            signature: "0xdeadbeef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1b",
+          }),
+        });
+        const fakeSigJson = await fakeSigRes.json();
+
+        setSecurityTestResult({
+          title: "Kiểm tra 4: Đăng nhập ví với chữ ký mật mã giả mạo",
+          httpStatus: fakeSigRes.status,
+          passed: fakeSigRes.status === 401,
+          explanation:
+            fakeSigRes.status === 401
+              ? "✅ Backend đã kiểm tra viem.verifyMessage và chặn truy cập với HTTP 401 Unauthorized!"
+              : "❌ LỖI: Server chấp nhận chữ ký giả.",
+          responseBody: fakeSigJson,
         });
       }
     } catch (err: any) {
@@ -934,7 +1064,7 @@ export default function Home() {
 
                 <div className="flex flex-col gap-2 pt-1">
                   <p className="font-bold text-[11px] uppercase tracking-wider text-muted-foreground">
-                    Chạy Thử Nghiệm Tấn Công & Xác Thực:
+                    Chạy Thử Nghiệm Tấn Công & Độ Tin Cậy Worker:
                   </p>
                   <Button
                     variant="outline"
@@ -943,16 +1073,34 @@ export default function Home() {
                     disabled={testingSecurity}
                     className="h-8 text-xs font-mono justify-start text-left border-rose-500/40 text-rose-500 hover:bg-rose-500/10"
                   >
-                    1. Thử User B truy cập Dự án User A (Test 403 Forbidden)
+                    1. User B truy cập trái phép Dự án User A (403 Forbidden)
                   </Button>
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => runAccessControlTest("spoof_client_address")}
+                    onClick={() => runAccessControlTest("concurrent_same_key")}
+                    disabled={testingSecurity}
+                    className="h-8 text-xs font-mono justify-start text-left border-blue-500/40 text-blue-500 hover:bg-blue-500/10"
+                  >
+                    2. Hai request đồng thời cùng Key (Deduplication Test)
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => runAccessControlTest("payload_conflict")}
                     disabled={testingSecurity}
                     className="h-8 text-xs font-mono justify-start text-left border-amber-500/40 text-amber-500 hover:bg-amber-500/10"
                   >
-                    2. Thử Client tự gửi User Address giả mạo
+                    3. Cùng Key nhưng khác payload (409 Conflict Test)
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => runAccessControlTest("fake_wallet_sig")}
+                    disabled={testingSecurity}
+                    className="h-8 text-xs font-mono justify-start text-left border-purple-500/40 text-purple-500 hover:bg-purple-500/10"
+                  >
+                    4. Đăng nhập ví với chữ ký giả mạo (401 Unauthorized)
                   </Button>
                 </div>
 
