@@ -100,6 +100,7 @@ export default function Home() {
   const [wallet, setWallet] = useState<WalletInfo | null>(null);
   const [training, setTraining] = useState<TrainingData | null>(null);
   const [userAccount, setUserAccount] = useState<string | null>(null);
+  const [userBalance, setUserBalance] = useState<string | null>(null);
   const [connectingUser, setConnectingUser] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -148,7 +149,8 @@ export default function Home() {
     try {
       const accounts = await eth.request({ method: "eth_requestAccounts" });
       if (accounts && accounts[0]) {
-        setUserAccount(accounts[0]);
+        const acc = accounts[0];
+        setUserAccount(acc);
         // Request network switch to Base Sepolia (Chain ID 84532 / 0x14a34)
         try {
           await eth.request({
@@ -171,12 +173,23 @@ export default function Home() {
             });
           }
         }
+
+        // Fetch user balance
+        try {
+          const rawBal = await eth.request({
+            method: "eth_getBalance",
+            params: [acc, "latest"],
+          });
+          const ethVal = (parseInt(rawBal, 16) / 1e18).toFixed(4);
+          setUserBalance(ethVal);
+        } catch {}
       }
     } catch (err: any) {
       console.error("Wallet connection failed:", err);
     }
     setConnectingUser(false);
   }
+
 
   /** Transfer test ETH from User's MetaMask to Agent Wallet in 1 click */
   async function fundAgentFromUserWallet() {
@@ -245,17 +258,44 @@ export default function Home() {
             <span className="text-foreground">/ Agentmaxxing</span>&nbsp;Multi-Domain Cognitive Engine
           </Label>
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline" className="font-mono text-xs uppercase">
+            <Badge variant="outline" className="font-mono text-xs uppercase hidden sm:inline-flex">
               <Zap className="size-3 mr-1 text-amber-500" /> {status?.tools.length ?? 0} Tools
             </Badge>
-            <Badge variant="secondary" className="font-mono text-xs uppercase bg-primary/10 text-primary border-primary/20">
-              <GraduationCap className="size-3 mr-1" /> {training?.knowledgeCount ?? 5} Knowledge Base Items
+            <Badge variant="secondary" className="font-mono text-xs uppercase bg-primary/10 text-primary border-primary/20 hidden md:inline-flex">
+              <GraduationCap className="size-3 mr-1" /> {training?.knowledgeCount ?? 5} KB Items
             </Badge>
             <Badge variant="outline" className="font-mono text-xs uppercase text-emerald-500 border-emerald-500/30">
-              Base Sepolia L2 (84532)
+              Base Sepolia (84532)
             </Badge>
-            {status && <Label>Model: {status.model}</Label>}
+
+            {/* DApp Connect Wallet Button */}
+            {!userAccount ? (
+              <Button
+                size="sm"
+                onClick={connectBrowserWallet}
+                disabled={connectingUser}
+                className="bg-primary hover:bg-primary/90 text-primary-foreground font-mono text-xs uppercase tracking-wider font-bold h-8 px-3 ml-1"
+              >
+                <Wallet className="size-3.5 mr-1.5" />
+                {connectingUser ? "Connecting..." : "Connect Wallet"}
+              </Button>
+            ) : (
+              <div className="flex items-center gap-2 border bg-card/90 p-1 px-2.5 font-mono text-xs shadow-sm ml-1 rounded-sm">
+                <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-muted-foreground text-[11px] hidden sm:inline">{userBalance ? `${userBalance} ETH` : "Connected"}</span>
+                <span className="text-border hidden sm:inline">|</span>
+                <code className="text-primary font-semibold text-[11px]">{userAccount.slice(0, 6)}...{userAccount.slice(-4)}</code>
+                <button
+                  onClick={() => setUserAccount(null)}
+                  title="Disconnect Wallet"
+                  className="text-muted-foreground hover:text-destructive text-[11px] ml-1 px-1"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
           </div>
+
         </div>
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-3">
           <div>
