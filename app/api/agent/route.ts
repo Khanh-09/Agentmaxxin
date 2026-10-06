@@ -84,7 +84,7 @@ export async function POST(req: Request) {
   const startTime = Date.now();
 
   try {
-    const result = await runGraph(messages, { baseUrl: new URL(req.url).origin });
+    const result = await runGraph(messages, { baseUrl: new URL(req.url).origin, userId });
     const durationMs = Date.now() - startTime;
 
     // Transition task to succeeded

@@ -101,6 +101,14 @@ type UserMemory = {
   value: string;
   updatedAt: string;
 };
+type UserInteractionMemory = {
+  id: string;
+  timestamp: string;
+  userMessage: string;
+  agentSummary: string;
+  toolsUsed?: string[];
+  domain?: string;
+};
 type ProjectTask = {
   id: string;
   userId: string;
@@ -203,6 +211,7 @@ export default function Home() {
   const [wallet, setWallet] = useState<WalletInfo | null>(null);
   const [training, setTraining] = useState<TrainingData | null>(null);
   const [memories, setMemories] = useState<UserMemory[]>([]);
+  const [memoryTimeline, setMemoryTimeline] = useState<UserInteractionMemory[]>([]);
   const [projects, setProjects] = useState<ProjectTask[]>([]);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
   const [currentProjectStatus, setCurrentProjectStatus] = useState<"ACTIVE" | "COMPLETED" | "PAUSED">("ACTIVE");
@@ -285,10 +294,13 @@ export default function Home() {
       .then(setTraining)
       .catch(() => null);
 
-  const loadMemories = () =>
-    fetch("/api/memory")
+  const loadMemories = (tok = sessionToken) =>
+    fetch("/api/memory", { headers: getAuthHeaders(tok) })
       .then((r) => r.json())
-      .then((d) => setMemories(d.memories || []))
+      .then((d) => {
+        if (d.memories) setMemories(d.memories || []);
+        if (d.timeline) setMemoryTimeline(d.timeline || []);
+      })
       .catch(() => null);
 
   const loadProjects = (tok = sessionToken) => {
@@ -313,7 +325,7 @@ export default function Home() {
       loadAgentConfig();
       loadWallet();
       loadTraining();
-      loadMemories();
+      loadMemories(tok || undefined);
       if (tok) loadProjects(tok);
     });
   }, []);
@@ -468,6 +480,7 @@ export default function Home() {
             setSessionToken(authData.token);
             setSessionUser(authData.userId);
             loadProjects(authData.token);
+            loadMemories(authData.token);
           }
         }
 
@@ -511,9 +524,13 @@ export default function Home() {
   async function disconnectWallet() {
     setUserAccount(null);
     setUserBalance(null);
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("agentmaxx_session_token");
+    }
     const guestTok = await initSession();
     if (guestTok) {
       loadProjects(guestTok);
+      loadMemories(guestTok);
     }
   }
 
@@ -1201,7 +1218,7 @@ export default function Home() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <SectionTitle num="03" title="Quản Lý Bộ Nhớ Dài Hạn" />
-                <Button variant="ghost" size="icon-xs" onClick={loadMemories} aria-label="Refresh memory">
+                <Button variant="ghost" size="icon-xs" onClick={() => loadMemories()} aria-label="Refresh memory">
                   <RefreshCw className="size-3.5" />
                 </Button>
               </CardHeader>
@@ -1228,9 +1245,14 @@ export default function Home() {
                 </form>
 
                 <div className="flex flex-col gap-2">
-                  <p className="font-bold text-[11px] uppercase tracking-wider text-muted-foreground">
-                    Bộ nhớ đã lưu ({memories.length}):
-                  </p>
+                  <div className="flex items-center justify-between">
+                    <p className="font-bold text-[11px] uppercase tracking-wider text-muted-foreground">
+                      Bộ nhớ & Tùy chọn ({memories.length}):
+                    </p>
+                    <span className="text-[10px] text-muted-foreground font-mono">
+                      Hồ sơ: {sessionUser.slice(0, 14)}...
+                    </span>
+                  </div>
                   {memories.length === 0 ? (
                     <p className="text-muted-foreground text-[11px] italic p-2 border">Chưa có thông tin cá nhân hóa nào được lưu.</p>
                   ) : (
@@ -1252,6 +1274,37 @@ export default function Home() {
                         </Button>
                       </div>
                     ))
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-2 pt-2 border-t">
+                  <p className="font-bold text-[11px] uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                    📜 Diễn Biến & Lịch Sử Tương Tác ({memoryTimeline.length}):
+                  </p>
+                  {memoryTimeline.length === 0 ? (
+                    <p className="text-muted-foreground text-[11px] italic p-2 border">Chưa có nhật ký diễn biến nào cho hồ sơ này.</p>
+                  ) : (
+                    <div className="flex flex-col gap-2 max-h-[220px] overflow-y-auto">
+                      {memoryTimeline.map((t) => (
+                        <div key={t.id} className="p-2 border bg-background text-[11px] flex flex-col gap-1">
+                          <div className="flex items-center justify-between text-[10px] text-muted-foreground font-mono">
+                            <span>{new Date(t.timestamp).toLocaleString("vi-VN")}</span>
+                            {t.domain && <span className="uppercase text-primary font-bold">[{t.domain}]</span>}
+                          </div>
+                          <div className="font-semibold text-foreground truncate">
+                            👤 "{t.userMessage}"
+                          </div>
+                          <div className="text-muted-foreground line-clamp-2">
+                            🤖 {t.agentSummary}
+                          </div>
+                          {t.toolsUsed && t.toolsUsed.length > 0 && (
+                            <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono">
+                              Tools: {t.toolsUsed.join(", ")}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
               </CardContent>

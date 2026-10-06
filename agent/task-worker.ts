@@ -45,8 +45,8 @@ export async function executeBackgroundTask(params: {
       return;
     }
 
-    // Run agent cognitive graph with abort signal propagation
-    const result = await runGraph(messages, { baseUrl, abortSignal: controller.signal });
+    // Run agent cognitive graph with abort signal propagation and per-user memory context
+    const result = await runGraph(messages, { baseUrl, abortSignal: controller.signal, userId });
 
     // Check cancellation again post-execution
     if (isTaskCancelled(taskId) || controller.signal.aborted) {
