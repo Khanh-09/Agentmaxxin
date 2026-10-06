@@ -1,14 +1,29 @@
 import { getAuthenticatedSession } from "@/agent/auth";
-import { listProjects, saveOrUpdateProject, deleteProject } from "@/agent/projects";
+import { listProjects, saveOrUpdateProject, deleteProject, type ProjectStatus } from "@/agent/projects";
 
-// GET /api/projects -> List all projects for authenticated session user
+// GET /api/projects -> List all projects for authenticated session user with search, filter, and pagination
 export async function GET(req: Request) {
   try {
     const session = getAuthenticatedSession(req);
     const userId = session?.userId || "guest_default";
-    const projects = listProjects(userId);
+    const url = new URL(req.url);
+
+    const search = url.searchParams.get("search") || url.searchParams.get("q") || undefined;
+    const status = (url.searchParams.get("status") as ProjectStatus) || undefined;
+    const domain = url.searchParams.get("domain") || undefined;
+    const page = parseInt(url.searchParams.get("page") || "1", 10);
+    const limit = parseInt(url.searchParams.get("limit") || "50", 10);
+
+    const result = listProjects(userId, { search, status, domain, page, limit });
+
     return Response.json({
-      projects,
+      projects: result.projects,
+      pagination: {
+        total: result.total,
+        page: result.page,
+        totalPages: result.totalPages,
+        limit,
+      },
       session: {
         userId,
         isWallet: session?.isWallet || false,
@@ -20,7 +35,7 @@ export async function GET(req: Request) {
   }
 }
 
-// POST /api/projects { id?, title?, objective?, status?, messages, currentTaskId?, currentTaskStatus?, summary? }
+// POST /api/projects { id?, title?, objective?, status?, messages, currentTaskId?, currentTaskStatus?, summary?, handoffSummary? }
 export async function POST(req: Request) {
   try {
     const session = getAuthenticatedSession(req);

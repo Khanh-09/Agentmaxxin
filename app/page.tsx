@@ -51,7 +51,18 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 
 type Step = { tool: string; args: any; result: any; error?: boolean };
-type Message = { role: "user" | "agent"; text: string; steps?: Step[]; error?: boolean; domain?: string };
+type Message = {
+  id?: string;
+  role: "user" | "agent";
+  text: string;
+  content?: string;
+  createdAt?: string;
+  taskId?: string;
+  memoriesUsed?: string[];
+  steps?: Step[];
+  error?: boolean;
+  domain?: string;
+};
 type Status = { hasApiKey: boolean; model: string; tools: { name: string; description: string; category?: string }[] };
 type TxRecord = {
   id: string;
@@ -101,6 +112,30 @@ type UserMemory = {
   value: string;
   updatedAt: string;
 };
+type ScopedMemoryItem = {
+  id: string;
+  userId: string;
+  scope: "user" | "project";
+  projectId?: string;
+  key: string;
+  value: string;
+  status: "active" | "superseded" | "proposed";
+  confidence?: number;
+  sourceMessageId?: string;
+  sourceTaskId?: string;
+  extractedMethod?: "explicit" | "inferred" | "manual";
+  previousVersionId?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+type StructuredHandoffSummary = {
+  objective: string;
+  decidedItems: string[];
+  completedWork: string[];
+  pendingWork: string[];
+  relevantTasks: string[];
+  lastUpdated: string;
+};
 type UserInteractionMemory = {
   id: string;
   timestamp: string;
@@ -144,6 +179,7 @@ type ProjectTask = {
   currentTaskId?: string;
   currentTaskStatus?: "queued" | "running" | "succeeded" | "failed" | "cancelled";
   summary?: string;
+  handoffSummary?: StructuredHandoffSummary;
   createdAt: string;
   updatedAt: string;
 };
@@ -235,8 +271,19 @@ export default function Home() {
   const [wallet, setWallet] = useState<WalletInfo | null>(null);
   const [training, setTraining] = useState<TrainingData | null>(null);
   const [memories, setMemories] = useState<UserMemory[]>([]);
+  const [scopedMemories, setScopedMemories] = useState<ScopedMemoryItem[]>([]);
+  const [memoryFilterScope, setMemoryFilterScope] = useState<"all" | "user" | "project">("all");
+  const [memoryFilterStatus, setMemoryFilterStatus] = useState<"all" | "active" | "proposed" | "superseded">("all");
+  const [memorySearchQuery, setMemorySearchQuery] = useState("");
+  const [newMemoryScope, setNewMemoryScope] = useState<"user" | "project">("user");
+  const [editingMemoryId, setEditingMemoryId] = useState<string | null>(null);
+  const [editingMemoryValue, setEditingMemoryValue] = useState("");
   const [memoryTimeline, setMemoryTimeline] = useState<UserInteractionMemory[]>([]);
   const [projects, setProjects] = useState<ProjectTask[]>([]);
+  const [projectSearchQuery, setProjectSearchQuery] = useState("");
+  const [projectFilterStatus, setProjectFilterStatus] = useState("all");
+  const [projectPage, setProjectPage] = useState(1);
+  const [totalProjects, setTotalProjects] = useState(0);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
   const [currentProjectStatus, setCurrentProjectStatus] = useState<"ACTIVE" | "COMPLETED" | "PAUSED">("ACTIVE");
   const [currentTask, setCurrentTask] = useState<AgentTask | null>(null);
@@ -321,20 +368,51 @@ export default function Home() {
       .then(setTraining)
       .catch(() => null);
 
-  const loadMemories = (tok = sessionToken) =>
-    fetch("/api/memory", { headers: getAuthHeaders(tok) })
+  const loadMemories = (
+    tok = sessionToken,
+    scope = memoryFilterScope,
+    statusFilter = memoryFilterStatus,
+    q = memorySearchQuery
+  ) => {
+    const params = new URLSearchParams();
+    if (scope && scope !== "all") params.append("scope", scope);
+    if (statusFilter && statusFilter !== "all") params.append("status", statusFilter);
+    if (currentProjectId) params.append("projectId", currentProjectId);
+    if (q) params.append("search", q);
+
+    fetch(`/api/memory?${params.toString()}`, { headers: getAuthHeaders(tok) })
       .then((r) => r.json())
       .then((d) => {
-        if (d.memories) setMemories(d.memories || []);
+        if (d.memories) {
+          setScopedMemories(d.memories);
+          setMemories(
+            d.memories
+              .filter((m: ScopedMemoryItem) => m.status === "active")
+              .map((m: ScopedMemoryItem) => ({ key: m.key, value: m.value, updatedAt: m.updatedAt }))
+          );
+        }
         if (d.timeline) setMemoryTimeline(d.timeline || []);
       })
       .catch(() => null);
+  };
 
-  const loadProjects = (tok = sessionToken) => {
-    fetch("/api/projects", { headers: getAuthHeaders(tok) })
+  const loadProjects = (
+    tok = sessionToken,
+    page = projectPage,
+    search = projectSearchQuery,
+    stat = projectFilterStatus
+  ) => {
+    const params = new URLSearchParams();
+    params.append("page", String(page));
+    params.append("limit", "10");
+    if (search) params.append("search", search);
+    if (stat && stat !== "all") params.append("status", stat);
+
+    fetch(`/api/projects?${params.toString()}`, { headers: getAuthHeaders(tok) })
       .then((r) => r.json())
       .then((d) => {
         if (d.projects) setProjects(d.projects);
+        if (typeof d.total === "number") setTotalProjects(d.total);
       })
       .catch(() => null);
   };
@@ -851,18 +929,43 @@ export default function Home() {
     await fetch("/api/memory", {
       method: "POST",
       headers: getAuthHeaders(),
-      body: JSON.stringify({ key: newMemoryKey, value: newMemoryVal }),
+      body: JSON.stringify({
+        key: newMemoryKey,
+        value: newMemoryVal,
+        scope: newMemoryScope,
+        projectId: newMemoryScope === "project" ? currentProjectId : undefined,
+        method: "manual",
+      }),
     });
     setNewMemoryKey("");
     setNewMemoryVal("");
     loadMemories();
   }
 
-  async function handleDeleteMemory(key: string) {
+  async function handleApproveMemory(id: string) {
+    await fetch("/api/memory", {
+      method: "PUT",
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ id, action: "approve" }),
+    });
+    loadMemories();
+  }
+
+  async function handleSaveMemoryEdit(id: string, value: string) {
+    await fetch("/api/memory", {
+      method: "PUT",
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ id, value }),
+    });
+    setEditingMemoryId(null);
+    loadMemories();
+  }
+
+  async function handleDeleteMemory(idOrKey: string) {
     await fetch("/api/memory", {
       method: "DELETE",
       headers: getAuthHeaders(),
-      body: JSON.stringify({ key }),
+      body: JSON.stringify({ id: idOrKey, key: idOrKey }),
     });
     loadMemories();
   }
@@ -1238,7 +1341,7 @@ export default function Home() {
             </Card>
           )}
 
-          {/* TAB 2: SAVED PROJECTS & TASK HISTORY */}
+          {/* TAB 2: SAVED PROJECTS, HANDOFF SUMMARIES & TASK HISTORY */}
           {activeTab === "projects" && (
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
@@ -1247,33 +1350,62 @@ export default function Home() {
                   <RefreshCw className="size-3.5" />
                 </Button>
               </CardHeader>
-              <CardContent className="flex flex-col gap-3 font-mono text-xs max-h-[520px] overflow-y-auto pr-1">
-                <div className="flex items-center justify-between pb-1 border-b">
-                  <span className="text-muted-foreground text-[11px]">
-                    User ID: <code className="text-primary font-semibold">{sessionUser.slice(0, 10)}...</code>
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={startNewTask}
-                    className="h-7 text-xs font-mono border-primary/40 text-primary hover:bg-primary/10"
-                  >
-                    <Plus className="mr-1 size-3" /> Tạo Mới
-                  </Button>
+              <CardContent className="flex flex-col gap-3 font-mono text-xs max-h-[560px] overflow-y-auto pr-1">
+                {/* Search & Filter Header */}
+                <div className="flex flex-col gap-2 pb-2 border-b">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground text-[11px]">
+                      User ID: <code className="text-primary font-semibold">{sessionUser.slice(0, 10)}...</code>
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={startNewTask}
+                      className="h-7 text-xs font-mono border-primary/40 text-primary hover:bg-primary/10"
+                    >
+                      <Plus className="mr-1 size-3" /> Tạo Mới
+                    </Button>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-2 top-2 size-3 text-muted-foreground" />
+                      <Input
+                        value={projectSearchQuery}
+                        onChange={(e) => {
+                          setProjectSearchQuery(e.target.value);
+                          loadProjects(sessionToken, 1, e.target.value, projectFilterStatus);
+                        }}
+                        placeholder="Tìm kiếm dự án, mục tiêu..."
+                        className="h-7 pl-7 text-[11px] font-mono"
+                      />
+                    </div>
+                    <select
+                      value={projectFilterStatus}
+                      onChange={(e) => {
+                        setProjectFilterStatus(e.target.value);
+                        loadProjects(sessionToken, 1, projectSearchQuery, e.target.value);
+                      }}
+                      className="h-7 px-2 text-[10px] font-mono bg-background border text-foreground outline-none cursor-pointer"
+                    >
+                      <option value="all">Tất cả</option>
+                      <option value="ACTIVE">Active</option>
+                      <option value="COMPLETED">Completed</option>
+                      <option value="PAUSED">Paused</option>
+                    </select>
+                  </div>
                 </div>
 
                 {projects.length === 0 ? (
                   <p className="text-muted-foreground text-[11px] italic p-3 border text-center">
-                    Chưa có dự án nào được lưu cho tài khoản này.
+                    Không tìm thấy dự án nào phù hợp.
                   </p>
                 ) : (
                   projects.map((p) => (
                     <div
                       key={p.id}
-                      onClick={() => resumeProject(p)}
                       className={cn(
-                        "p-3 border flex flex-col gap-1.5 cursor-pointer transition-colors",
-                        currentProjectId === p.id ? "border-primary bg-primary/5" : "bg-background hover:bg-muted/30"
+                        "p-3 border flex flex-col gap-2 transition-colors",
+                        currentProjectId === p.id ? "border-primary bg-primary/5" : "bg-background hover:bg-muted/20"
                       )}
                     >
                       <div className="flex items-center justify-between gap-2">
@@ -1301,12 +1433,64 @@ export default function Home() {
                           </button>
                         </div>
                       </div>
-                      <p className="text-muted-foreground text-[11px] font-sans line-clamp-1">{p.objective}</p>
+
+                      <p className="text-muted-foreground text-[11px] font-sans line-clamp-2">{p.objective}</p>
+
+                      {/* Structured Handoff Summary Card if available */}
+                      {p.handoffSummary && (
+                        <div className="p-2 border border-primary/20 bg-primary/5 text-[10px] flex flex-col gap-1.5 font-sans">
+                          <span className="font-bold text-primary uppercase text-[10px] flex items-center gap-1">
+                            <FileText className="size-3" /> Tóm Tắt Bàn Giao (Handoff Summary):
+                          </span>
+                          {p.handoffSummary.decidedItems?.length > 0 && (
+                            <div>
+                              <span className="font-semibold text-foreground">📌 Quyết định đã chốt:</span>
+                              <ul className="list-disc list-inside text-muted-foreground pl-1">
+                                {p.handoffSummary.decidedItems.map((d, idx) => (
+                                  <li key={idx} className="truncate">{d}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          {p.handoffSummary.completedWork?.length > 0 && (
+                            <div>
+                              <span className="font-semibold text-emerald-600 dark:text-emerald-400">✅ Công việc hoàn thành:</span>
+                              <ul className="list-disc list-inside text-muted-foreground pl-1">
+                                {p.handoffSummary.completedWork.map((c, idx) => (
+                                  <li key={idx} className="truncate">{c}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          {p.handoffSummary.pendingWork?.length > 0 && (
+                            <div>
+                              <span className="font-semibold text-amber-600 dark:text-amber-400">⏳ Việc còn lại:</span>
+                              <ul className="list-disc list-inside text-muted-foreground pl-1">
+                                {p.handoffSummary.pendingWork.map((w, idx) => (
+                                  <li key={idx} className="truncate">{w}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1 border-t">
                         <span className="flex items-center gap-1">
                           <Clock className="size-2.5" /> {p.currentTaskStatus ? `Task: ${p.currentTaskStatus}` : `${p.messages?.length ?? 0} tin nhắn`}
                         </span>
-                        <span>{new Date(p.updatedAt).toLocaleString()}</span>
+                        <div className="flex items-center gap-2">
+                          <span>{new Date(p.updatedAt).toLocaleTimeString("vi-VN")}</span>
+                          <Button
+                            variant={currentProjectId === p.id ? "secondary" : "outline"}
+                            size="sm"
+                            onClick={() => resumeProject(p)}
+                            className="h-6 text-[10px] font-mono px-2"
+                          >
+                            <RotateCcw className="mr-1 size-2.5" />
+                            {currentProjectId === p.id ? "Đang mở" : "Tiếp tục"}
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   ))
@@ -1393,70 +1577,244 @@ export default function Home() {
             </Card>
           )}
 
-          {/* TAB 3: MEMORY & PERSONA MANAGER */}
+          {/* TAB 3: SCOPED LONG-TERM MEMORY & PERSONA MANAGER */}
           {activeTab === "memory" && (
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
-                <SectionTitle num="03" title="Quản Lý Bộ Nhớ Dài Hạn" />
+                <SectionTitle num="03" title="Bộ Nhớ Dài Hạn (Scoped Long-Term Memory)" />
                 <Button variant="ghost" size="icon-xs" onClick={() => loadMemories()} aria-label="Refresh memory">
                   <RefreshCw className="size-3.5" />
                 </Button>
               </CardHeader>
-              <CardContent className="flex flex-col gap-4 font-mono text-xs max-h-[520px] overflow-y-auto pr-1">
-                <form onSubmit={handleAddMemory} className="flex flex-col gap-2 p-3 border bg-muted/20">
-                  <span className="font-bold text-[11px] uppercase text-muted-foreground flex items-center gap-1">
-                    <Plus className="size-3" /> Thêm Tùy Chọn / Profile Mới:
-                  </span>
+              <CardContent className="flex flex-col gap-3 font-mono text-xs max-h-[580px] overflow-y-auto pr-1">
+                {/* Scope & Status Filter Pills */}
+                <div className="flex flex-col gap-2 p-2.5 border bg-muted/20">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-muted-foreground uppercase font-bold">Phạm vi (Scope):</span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => { setMemoryFilterScope("all"); loadMemories(sessionToken, "all", memoryFilterStatus, memorySearchQuery); }}
+                        className={cn("px-2 py-0.5 text-[10px] border", memoryFilterScope === "all" ? "bg-primary text-primary-foreground font-bold" : "bg-background text-muted-foreground")}
+                      >
+                        Tất cả
+                      </button>
+                      <button
+                        onClick={() => { setMemoryFilterScope("user"); loadMemories(sessionToken, "user", memoryFilterStatus, memorySearchQuery); }}
+                        className={cn("px-2 py-0.5 text-[10px] border", memoryFilterScope === "user" ? "bg-primary text-primary-foreground font-bold" : "bg-background text-muted-foreground")}
+                      >
+                        👤 User
+                      </button>
+                      <button
+                        onClick={() => { setMemoryFilterScope("project"); loadMemories(sessionToken, "project", memoryFilterStatus, memorySearchQuery); }}
+                        className={cn("px-2 py-0.5 text-[10px] border", memoryFilterScope === "project" ? "bg-primary text-primary-foreground font-bold" : "bg-background text-muted-foreground")}
+                      >
+                        📁 Project
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-muted-foreground uppercase font-bold">Trạng thái:</span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => { setMemoryFilterStatus("all"); loadMemories(sessionToken, memoryFilterScope, "all", memorySearchQuery); }}
+                        className={cn("px-1.5 py-0.5 text-[10px] border", memoryFilterStatus === "all" ? "bg-primary text-primary-foreground font-bold" : "bg-background text-muted-foreground")}
+                      >
+                        Tất cả
+                      </button>
+                      <button
+                        onClick={() => { setMemoryFilterStatus("active"); loadMemories(sessionToken, memoryFilterScope, "active", memorySearchQuery); }}
+                        className={cn("px-1.5 py-0.5 text-[10px] border", memoryFilterStatus === "active" ? "bg-emerald-600 text-white font-bold" : "bg-background text-muted-foreground")}
+                      >
+                        Active
+                      </button>
+                      <button
+                        onClick={() => { setMemoryFilterStatus("proposed"); loadMemories(sessionToken, memoryFilterScope, "proposed", memorySearchQuery); }}
+                        className={cn("px-1.5 py-0.5 text-[10px] border", memoryFilterStatus === "proposed" ? "bg-amber-600 text-white font-bold" : "bg-background text-muted-foreground")}
+                      >
+                        Đề xuất
+                      </button>
+                      <button
+                        onClick={() => { setMemoryFilterStatus("superseded"); loadMemories(sessionToken, memoryFilterScope, "superseded", memorySearchQuery); }}
+                        className={cn("px-1.5 py-0.5 text-[10px] border", memoryFilterStatus === "superseded" ? "bg-slate-600 text-white font-bold" : "bg-background text-muted-foreground")}
+                      >
+                        Cũ
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Search Memory Key/Value */}
+                  <div className="relative pt-1">
+                    <Search className="absolute left-2 top-3 size-3 text-muted-foreground" />
+                    <Input
+                      value={memorySearchQuery}
+                      onChange={(e) => {
+                        setMemorySearchQuery(e.target.value);
+                        loadMemories(sessionToken, memoryFilterScope, memoryFilterStatus, e.target.value);
+                      }}
+                      placeholder="Tìm kiếm bộ nhớ theo khóa / nội dung..."
+                      className="h-7 pl-7 text-[11px] font-mono bg-background"
+                    />
+                  </div>
+                </div>
+
+                {/* Add Explicit Memory Form */}
+                <form onSubmit={handleAddMemory} className="flex flex-col gap-2 p-3 border bg-muted/10">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-[11px] uppercase text-muted-foreground flex items-center gap-1">
+                      <Plus className="size-3" /> Thêm Bộ Nhớ Mới:
+                    </span>
+                    <select
+                      value={newMemoryScope}
+                      onChange={(e) => setNewMemoryScope(e.target.value as any)}
+                      className="h-6 px-1 text-[10px] font-mono bg-background border text-foreground outline-none"
+                    >
+                      <option value="user">👤 User Scope (Toàn cục)</option>
+                      <option value="project">📁 Project Scope ({currentProjectId ? currentProjectId.slice(-6) : "Dự án hiện tại"})</option>
+                    </select>
+                  </div>
                   <Input
                     value={newMemoryKey}
                     onChange={(e) => setNewMemoryKey(e.target.value)}
-                    placeholder="Khóa (e.g. user_name, target_currency, preferred_tone)"
-                    className="h-8 text-xs font-mono"
+                    placeholder="Khóa (e.g. user_name, target_currency, gas_limit_max)"
+                    className="h-7 text-xs font-mono"
                   />
                   <Input
                     value={newMemoryVal}
                     onChange={(e) => setNewMemoryVal(e.target.value)}
-                    placeholder="Giá trị (e.g. Khanh, Base Sepolia, Academic)"
-                    className="h-8 text-xs font-mono"
+                    placeholder="Nội dung giá trị (Secrets sẽ tự động bị loại bỏ an toàn)"
+                    className="h-7 text-xs font-mono"
                   />
-                  <Button type="submit" size="sm" className="h-8 font-mono text-xs uppercase">
+                  <Button type="submit" size="sm" className="h-7 font-mono text-xs uppercase">
                     Lưu vào Bộ Nhớ
                   </Button>
                 </form>
 
+                {/* Scoped Memory List */}
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center justify-between">
                     <p className="font-bold text-[11px] uppercase tracking-wider text-muted-foreground">
-                      Bộ nhớ & Tùy chọn ({memories.length}):
+                      Danh sách bộ nhớ ({scopedMemories.length}):
                     </p>
                     <span className="text-[10px] text-muted-foreground font-mono">
-                      Hồ sơ: {sessionUser.slice(0, 14)}...
+                      User: {sessionUser.slice(0, 10)}...
                     </span>
                   </div>
-                  {memories.length === 0 ? (
-                    <p className="text-muted-foreground text-[11px] italic p-2 border">Chưa có thông tin cá nhân hóa nào được lưu.</p>
+
+                  {scopedMemories.length === 0 ? (
+                    <p className="text-muted-foreground text-[11px] italic p-2 border">Chưa có thông tin bộ nhớ nào khớp bộ lọc.</p>
                   ) : (
-                    memories.map((m) => (
-                      <div key={m.key} className="p-2.5 border bg-background flex items-center justify-between gap-2">
-                        <div className="flex flex-col gap-0.5 truncate">
-                          <span className="font-bold text-primary text-xs uppercase">{m.key}</span>
-                          <span className="text-foreground text-xs truncate">{m.value}</span>
-                          <span className="text-[10px] text-muted-foreground">{new Date(m.updatedAt).toLocaleString()}</span>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon-xs"
-                          onClick={() => handleDeleteMemory(m.key)}
-                          className="text-muted-foreground hover:text-destructive"
-                          title="Xóa bộ nhớ"
+                    scopedMemories.map((m) => {
+                      const isProposed = m.status === "proposed";
+                      const isSuperseded = m.status === "superseded";
+                      const isEditing = editingMemoryId === m.id;
+
+                      return (
+                        <div
+                          key={m.id}
+                          className={cn(
+                            "p-2.5 border flex flex-col gap-1.5 transition-all bg-background",
+                            isProposed && "border-amber-500/40 bg-amber-500/5",
+                            isSuperseded && "opacity-60 border-dashed"
+                          )}
                         >
-                          <Trash2 className="size-3.5" />
-                        </Button>
-                      </div>
-                    ))
+                          <div className="flex items-center justify-between gap-1">
+                            <div className="flex items-center gap-1.5 truncate">
+                              <span className="font-bold text-primary text-xs uppercase">{m.key}</span>
+                              <Badge variant="outline" className="text-[9px] uppercase px-1 py-0 font-mono">
+                                {m.scope}
+                              </Badge>
+                              <Badge
+                                variant="secondary"
+                                className={cn(
+                                  "text-[9px] uppercase px-1 py-0 font-mono",
+                                  m.status === "active" && "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+                                  m.status === "proposed" && "bg-amber-500/15 text-amber-600 dark:text-amber-400 animate-pulse",
+                                  m.status === "superseded" && "bg-slate-500/15 text-slate-600 dark:text-slate-400"
+                                )}
+                              >
+                                {m.status}
+                              </Badge>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              {isProposed && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleApproveMemory(m.id)}
+                                  className="h-6 text-[10px] font-mono px-2 text-emerald-600 border-emerald-500/40 hover:bg-emerald-500/10"
+                                  title="Phê duyệt đề xuất bộ nhớ này"
+                                >
+                                  <Check className="mr-1 size-2.5" /> Duyệt
+                                </Button>
+                              )}
+                              {!isEditing ? (
+                                <button
+                                  onClick={() => {
+                                    setEditingMemoryId(m.id);
+                                    setEditingMemoryValue(m.value);
+                                  }}
+                                  className="text-muted-foreground hover:text-primary p-1 text-[10px]"
+                                  title="Sửa nội dung"
+                                >
+                                  Sửa
+                                </button>
+                              ) : (
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    onClick={() => handleSaveMemoryEdit(m.id, editingMemoryValue)}
+                                    className="text-emerald-600 hover:underline p-1 text-[10px] font-bold"
+                                  >
+                                    Lưu
+                                  </button>
+                                  <button
+                                    onClick={() => setEditingMemoryId(null)}
+                                    className="text-muted-foreground hover:underline p-1 text-[10px]"
+                                  >
+                                    Hủy
+                                  </button>
+                                </div>
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="icon-xs"
+                                onClick={() => handleDeleteMemory(m.id)}
+                                className="text-muted-foreground hover:text-destructive size-6"
+                                title="Xóa bộ nhớ"
+                              >
+                                <Trash2 className="size-3" />
+                              </Button>
+                            </div>
+                          </div>
+
+                          {/* Value display or inline edit */}
+                          {isEditing ? (
+                            <Input
+                              value={editingMemoryValue}
+                              onChange={(e) => setEditingMemoryValue(e.target.value)}
+                              className="h-7 text-xs font-mono mt-1"
+                            />
+                          ) : (
+                            <p className="text-foreground text-xs select-all bg-muted/20 p-1 border font-mono break-all">
+                              {m.value}
+                            </p>
+                          )}
+
+                          {/* Provenance Metadata */}
+                          <div className="flex flex-wrap items-center justify-between text-[9px] text-muted-foreground pt-1 border-t">
+                            <span className="truncate">
+                              Nguồn: {m.extractedMethod || "manual"}
+                              {m.sourceTaskId ? ` (Task: ${m.sourceTaskId.slice(-6)})` : ""}
+                            </span>
+                            <span>{new Date(m.updatedAt).toLocaleString("vi-VN")}</span>
+                          </div>
+                        </div>
+                      );
+                    })
                   )}
                 </div>
 
+                {/* Interaction Timeline */}
                 <div className="flex flex-col gap-2 pt-2 border-t">
                   <p className="font-bold text-[11px] uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                     📜 Diễn Biến & Lịch Sử Tương Tác ({memoryTimeline.length}):
@@ -1464,7 +1822,7 @@ export default function Home() {
                   {memoryTimeline.length === 0 ? (
                     <p className="text-muted-foreground text-[11px] italic p-2 border">Chưa có nhật ký diễn biến nào cho hồ sơ này.</p>
                   ) : (
-                    <div className="flex flex-col gap-2 max-h-[220px] overflow-y-auto">
+                    <div className="flex flex-col gap-2 max-h-[180px] overflow-y-auto">
                       {memoryTimeline.map((t) => (
                         <div key={t.id} className="p-2 border bg-background text-[11px] flex flex-col gap-1">
                           <div className="flex items-center justify-between text-[10px] text-muted-foreground font-mono">
@@ -1477,11 +1835,6 @@ export default function Home() {
                           <div className="text-muted-foreground line-clamp-2">
                             🤖 {t.agentSummary}
                           </div>
-                          {t.toolsUsed && t.toolsUsed.length > 0 && (
-                            <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono">
-                              Tools: {t.toolsUsed.join(", ")}
-                            </div>
-                          )}
                         </div>
                       ))}
                     </div>
@@ -2135,6 +2488,22 @@ export default function Home() {
                         ) : (
                           <>
                             {m.text}
+                            {m.memoriesUsed && m.memoriesUsed.length > 0 && (
+                              <div className="flex flex-wrap items-center gap-1.5 pt-2 mt-2 border-t border-border/40 font-mono text-[11px]">
+                                <span className="flex items-center gap-1 text-primary font-semibold">
+                                  <Brain className="size-3" /> Bộ nhớ đã dùng:
+                                </span>
+                                {m.memoriesUsed.map((memKey) => (
+                                  <Badge
+                                    key={memKey}
+                                    variant="outline"
+                                    className="text-[10px] px-1.5 py-0 bg-primary/10 text-primary border-primary/30"
+                                  >
+                                    {memKey}
+                                  </Badge>
+                                ))}
+                              </div>
+                            )}
                             {i === messages.length - 1 && currentTask?.report && (
                               <ReportAssessmentCard report={currentTask.report} usageMetrics={currentTask.usageMetrics} />
                             )}

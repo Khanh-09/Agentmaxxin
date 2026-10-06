@@ -6,6 +6,7 @@ import {
   registerTaskAbortController,
   unregisterTaskAbortController,
 } from "@/agent/tasks";
+import { getProjectById } from "@/agent/projects";
 import { validateCitationsAndAnalyzeEvidence } from "@/agent/citation-validator";
 
 /**
@@ -19,7 +20,7 @@ export async function executeBackgroundTask(params: {
   messages: Array<{ role: "user" | "agent"; text: string }>;
   baseUrl: string;
 }): Promise<void> {
-  const { taskId, userId, messages, baseUrl } = params;
+  const { taskId, userId, messages, baseUrl, projectId } = params;
 
   const controller = new AbortController();
   registerTaskAbortController(taskId, controller);
@@ -45,8 +46,17 @@ export async function executeBackgroundTask(params: {
       return;
     }
 
-    // Run agent cognitive graph with abort signal propagation and per-user memory context
-    const result = await runGraph(messages, { baseUrl, abortSignal: controller.signal, userId });
+    const projectRes = projectId ? getProjectById(projectId, userId) : null;
+    const handoffSummary = projectRes?.project?.handoffSummary;
+
+    // Run agent cognitive graph with abort signal propagation and scoped memory context
+    const result = await runGraph(messages, {
+      baseUrl,
+      abortSignal: controller.signal,
+      userId,
+      projectId,
+      handoffSummary,
+    });
 
     // Check cancellation again post-execution
     if (isTaskCancelled(taskId) || controller.signal.aborted) {
