@@ -1,0 +1,27 @@
+version: "3.8"
+
+services:
+  agentmaxx:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: agentmaxx-engine
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATA_DIR=/data
+      - AGENT_MODE=live
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.5-flash}
+      - TAVILY_API_KEY=${TAVILY_API_KEY}
+      - AUTH_SECRET=${AUTH_SECRET:-agentmaxx_production_secret_32chars_min}
+      - BASE_RPC_URL=${BASE_RPC_URL:-https://sepolia.base.org}
+    volumes:
+      - agentmaxx_data:/data
+
+volumes:
+  agentmaxx_data:
+    driver: local

@@ -51,16 +51,29 @@ export type TaskReport = {
   unsupportedClaimsCount?: number;
 };
 
+export type CostBreakdown = {
+  llmInferenceCostUsd: number | "chưa đo";
+  searchCostUsd: number | "chưa đo";
+  totalEstimatedCostUsd: number | "chưa đo";
+  pricingVersion: string;
+  disclaimer: string;
+};
+
 export type TaskUsageMetrics = {
+  llmCallsCount?: number;
   promptTokens?: number;
+  cachedTokens?: number;
   candidateTokens?: number;
   totalTokens?: number;
+  costBreakdown?: CostBreakdown;
   estimatedCostUsd?: number | "chưa đo";
   costCalculationMethod?: string;
   toolCallsCount?: number;
+  searchCallsCount?: number;
   executionTimeMs?: number;
   searchProvider?: string;
   llmModel?: string;
+  serviceType?: string;
   mode?: "live" | "mock";
 };
 

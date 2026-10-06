@@ -75,8 +75,11 @@ export async function runGraph(
   }));
   const steps: Step[] = [];
 
+  let llmCallsCount = 0;
   let promptTokenCount = 0;
+  let cachedTokenCount = 0;
   let candidateTokenCount = 0;
+  let searchCallsCount = 0;
   let hasUsageMetadata = false;
 
   // Ground with persistent memories
@@ -139,6 +142,7 @@ ${route.systemInstructionAddendum}
       throw new Error("Task execution cancelled by user.");
     }
 
+    llmCallsCount++;
     const response = await ai.models.generateContent({
       model: MODEL,
       contents,
@@ -158,6 +162,7 @@ ${route.systemInstructionAddendum}
 
     if (response.usageMetadata) {
       promptTokenCount += response.usageMetadata.promptTokenCount || 0;
+      cachedTokenCount += (response.usageMetadata as any).cachedContentTokenCount || 0;
       candidateTokenCount += response.usageMetadata.candidatesTokenCount || 0;
       hasUsageMetadata = true;
     }
@@ -178,6 +183,10 @@ ${route.systemInstructionAddendum}
     for (const call of calls) {
       if (ctx.abortSignal?.aborted) {
         throw new Error("Task execution cancelled by user.");
+      }
+
+      if (call.name === "get_web_search" || call.name === "extract_web_page") {
+        searchCallsCount++;
       }
 
       const tool = tools.find((t) => t.name === call.name);
@@ -210,6 +219,7 @@ ${route.systemInstructionAddendum}
 
   if (!finalAnswer) {
     try {
+      llmCallsCount++;
       const fallbackResponse = await ai.models.generateContent({
         model: MODEL,
         contents,
@@ -221,6 +231,7 @@ ${route.systemInstructionAddendum}
       });
       if (fallbackResponse.usageMetadata) {
         promptTokenCount += fallbackResponse.usageMetadata.promptTokenCount || 0;
+        cachedTokenCount += (fallbackResponse.usageMetadata as any).cachedContentTokenCount || 0;
         candidateTokenCount += fallbackResponse.usageMetadata.candidatesTokenCount || 0;
         hasUsageMetadata = true;
       }
@@ -258,24 +269,49 @@ ${route.systemInstructionAddendum}
   // ─── STAGE 4: LOG NODE (Persistent Run Record) ───
   const runId = logExecution(lastUserMsg, route.domain, steps, finalAnswer, evaluation);
 
-  // ─── METRICS & COST CALCULATION ───
+  // ─── ITEMISED COST ACCOUNTING & USAGE METRICS ───
   const totalTokens = promptTokenCount + candidateTokenCount;
-  const estimatedCostUsd: number | "chưa đo" = hasUsageMetadata
-    ? Number(((promptTokenCount * 0.075 + candidateTokenCount * 0.30) / 1_000_000).toFixed(6))
+  const nonCachedPrompt = Math.max(0, promptTokenCount - cachedTokenCount);
+
+  // Gemini Flash pricing model ($0.075/1M input, $0.01875/1M cached, $0.30/1M output)
+  const llmInferenceCostUsd: number | "chưa đo" = hasUsageMetadata
+    ? Number(((nonCachedPrompt * 0.075 + cachedTokenCount * 0.01875 + candidateTokenCount * 0.30) / 1_000_000).toFixed(6))
     : "chưa đo";
 
+  // Search cost model: Tavily $0.005/query, Wikipedia Live $0.000/query
+  const searchCostPerQuery = process.env.TAVILY_API_KEY ? 0.005 : 0.0;
+  const searchCostUsd: number = Number((searchCallsCount * searchCostPerQuery).toFixed(6));
+
+  const totalEstimatedCostUsd: number | "chưa đo" =
+    typeof llmInferenceCostUsd === "number"
+      ? Number((llmInferenceCostUsd + searchCostUsd).toFixed(6))
+      : "chưa đo";
+
+  const costBreakdown = {
+    llmInferenceCostUsd,
+    searchCostUsd,
+    totalEstimatedCostUsd,
+    pricingVersion: "Google AI Gemini Flash (v2025.1) + WebSearch Query Standard",
+    disclaimer: "Ước tính chi phí kỹ thuật (Estimated Technical Cost) dựa trên số lượng token và số lượt gọi API. Không đại diện cho hóa đơn thanh toán thực tế (invoicing) từ các nhà cung cấp.",
+  };
+
   const usageMetrics: TaskUsageMetrics = {
+    llmCallsCount,
     promptTokens: promptTokenCount,
+    cachedTokens: cachedTokenCount,
     candidateTokens: candidateTokenCount,
     totalTokens,
-    estimatedCostUsd,
+    costBreakdown,
+    estimatedCostUsd: totalEstimatedCostUsd,
     costCalculationMethod: hasUsageMetadata
-      ? `Gemini ${MODEL} ($0.075/1M input, $0.30/1M output tokens)`
+      ? `Gemini ${MODEL} ($0.075/1M in, $0.01875/1M cached, $0.30/1M out) + Search ($${searchCostPerQuery}/query)`
       : "chưa đo",
     toolCallsCount: steps.length,
+    searchCallsCount,
     executionTimeMs: Date.now() - startTime,
     searchProvider: config.search.provider,
     llmModel: config.llm.model,
+    serviceType: "Google Gemini Flash + Web Search Engine",
     mode: config.mode,
   };
 

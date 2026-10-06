@@ -93,8 +93,10 @@ async function runLiveIntegrationSuite() {
 
     console.log(`  ✓ Status: ${task.status} | Outcome: ${task.report?.outcome}`);
     console.log(`  ✓ Sources Retrieved: ${(task.sources || []).length} real sources`);
-    console.log(`  ✓ Token Usage: ${tokens} tokens (Prompt: ${task.usageMetrics?.promptTokens}, Candidate: ${task.usageMetrics?.candidateTokens})`);
-    console.log(`  ✓ Cost: ${typeof cost === "number" ? "$" + cost.toFixed(6) : cost} | Method: ${task.usageMetrics?.costCalculationMethod}`);
+    console.log(`  ✓ Token Usage: ${tokens} tokens (Prompt: ${task.usageMetrics?.promptTokens}, Cached: ${task.usageMetrics?.cachedTokens || 0}, Candidate: ${task.usageMetrics?.candidateTokens})`);
+    console.log(`  ✓ Cost Breakdown: LLM: $${task.usageMetrics?.costBreakdown?.llmInferenceCostUsd ?? 0} | Search: $${task.usageMetrics?.costBreakdown?.searchCostUsd ?? 0} | Total Estimated: ${typeof cost === "number" ? "$" + cost.toFixed(6) : cost}`);
+    console.log(`  ✓ Pricing Version: ${task.usageMetrics?.costBreakdown?.pricingVersion}`);
+    console.log(`  ✓ Disclaimer: "${task.usageMetrics?.costBreakdown?.disclaimer?.slice(0, 80)}..."`);
     console.log(`  ✓ Latency: ${latency}ms`);
 
     if (isSucceeded && hasSources && hasUsage) {

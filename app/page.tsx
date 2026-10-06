@@ -1961,19 +1961,35 @@ function ReportAssessmentCard({ report, usageMetrics }: { report: any; usageMetr
         ℹ️ <em>Giới hạn đo lường:</em> Chỉ số thể hiện mức độ khớp từ khóa/ngữ nghĩa giữa nhận định và nguồn trích dẫn. Không đảm bảo 100% tính đúng đắn logic đa tầng hoặc dữ liệu ngoài phạm vi nguồn.
       </p>
 
-      {/* Usage & Cost Metrics Box */}
+      {/* Detailed Itemized Cost Accounting Box */}
       {usageMetrics && (
-        <div className="p-2 border bg-background/80 flex flex-wrap items-center justify-between gap-2 text-[10px] font-mono">
-          <div className="flex flex-wrap items-center gap-2">
-            <span>⚡ Tokens: <strong>{usageMetrics.totalTokens ?? ((usageMetrics.promptTokens || 0) + (usageMetrics.candidateTokens || 0))}</strong> (In: {usageMetrics.promptTokens ?? 0} | Out: {usageMetrics.candidateTokens ?? 0})</span>
-            <span>|</span>
-            <span>💰 Chi phí: <strong className="text-primary">{typeof usageMetrics.estimatedCostUsd === "number" ? `$${usageMetrics.estimatedCostUsd.toFixed(6)}` : (usageMetrics.estimatedCostUsd || "chưa đo")}</strong></span>
+        <div className="p-2.5 border bg-background flex flex-col gap-1.5 text-[10px] font-mono">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-1.5 border-border/50">
+            <span className="font-bold uppercase text-foreground flex items-center gap-1">
+              📊 Bảng Ước Tính Chi Phí & Sử Dụng Tài Nguyên (Cost Accounting)
+            </span>
+            <Badge variant="outline" className="text-[9px] font-mono text-primary">
+              {usageMetrics.costBreakdown?.pricingVersion || "Google AI Pricing v2025.1"}
+            </Badge>
           </div>
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <span>⏱️ {usageMetrics.executionTimeMs ? `${(usageMetrics.executionTimeMs / 1000).toFixed(2)}s` : "..."}</span>
-            <span>|</span>
-            <span>Adapter: <strong>{usageMetrics.searchProvider || "live_api"}</strong></span>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pt-0.5">
+            <div className="flex flex-col gap-0.5">
+              <span>• <strong>Model LLM:</strong> {usageMetrics.llmModel || "gemini-2.5-flash"} ({usageMetrics.llmCallsCount || 1} lượt gọi)</span>
+              <span>• <strong>Tokens:</strong> {usageMetrics.totalTokens ?? 0} (Prompt: {usageMetrics.promptTokens ?? 0}, Cached: {usageMetrics.cachedTokens ?? 0}, Candidates/Thinking: {usageMetrics.candidateTokens ?? 0})</span>
+              <span>• <strong>Phí suy luận LLM (ước tính):</strong> <strong className="text-primary">{typeof usageMetrics.costBreakdown?.llmInferenceCostUsd === "number" ? `$${usageMetrics.costBreakdown.llmInferenceCostUsd.toFixed(6)}` : "chưa đo"}</strong></span>
+            </div>
+
+            <div className="flex flex-col gap-0.5">
+              <span>• <strong>Dịch vụ Tìm kiếm:</strong> {usageMetrics.searchProvider || "web_search"} ({usageMetrics.searchCallsCount || 0} queries)</span>
+              <span>• <strong>Phí Search API (ước tính):</strong> <strong className="text-primary">{typeof usageMetrics.costBreakdown?.searchCostUsd === "number" ? `$${usageMetrics.costBreakdown.searchCostUsd.toFixed(6)}` : "$0.000000"}</strong></span>
+              <span>• <strong>Tổng Chi Phí Ước Tính:</strong> <strong className="text-emerald-500 font-bold">{typeof usageMetrics.estimatedCostUsd === "number" ? `$${usageMetrics.estimatedCostUsd.toFixed(6)}` : (usageMetrics.estimatedCostUsd || "chưa đo")}</strong></span>
+            </div>
           </div>
+
+          <p className="text-[9px] text-muted-foreground font-sans italic border-t pt-1 border-border/40">
+            ℹ️ {usageMetrics.costBreakdown?.disclaimer || "Ước tính mang tính tham khảo kỹ thuật dựa trên khối lượng token và số lượt gọi API, không đại diện cho hóa đơn thanh toán thực tế (invoicing) từ nhà cung cấp."}
+          </p>
         </div>
       )}
 
@@ -2082,9 +2098,12 @@ function AgentMessageToolbar({
     reportDoc += `**Vòng đời thực thi (Execution Status):** \`${taskStatus || "succeeded"}\`\n`;
     reportDoc += `**Chất lượng đầu ra (Report Outcome):** \`${reportOutcome || (sources?.length ? "complete" : "insufficient_evidence")}\`\n`;
     if (usageMetrics) {
-      reportDoc += `**Tiêu thụ tài nguyên (Tokens):** ${usageMetrics.totalTokens ?? "N/A"} (Prompt: ${usageMetrics.promptTokens ?? 0}, Response: ${usageMetrics.candidateTokens ?? 0})\n`;
-      reportDoc += `**Ước tính chi phí:** ${typeof usageMetrics.estimatedCostUsd === "number" ? `$${usageMetrics.estimatedCostUsd.toFixed(6)}` : (usageMetrics.estimatedCostUsd || "chưa đo")}\n`;
-      reportDoc += `**Phương pháp tính chi phí:** ${usageMetrics.costCalculationMethod || "chưa đo"}\n`;
+      reportDoc += `**Mô hình LLM:** \`${usageMetrics.llmModel || "gemini-2.5-flash"}\` (${usageMetrics.llmCallsCount || 1} lượt suy luận)\n`;
+      reportDoc += `**Tiêu thụ tài nguyên (Tokens):** ${usageMetrics.totalTokens ?? "N/A"} (Prompt: ${usageMetrics.promptTokens ?? 0}, Cached: ${usageMetrics.cachedTokens ?? 0}, Candidates/Thinking: ${usageMetrics.candidateTokens ?? 0})\n`;
+      reportDoc += `**Chi phí LLM (Ước tính):** ${typeof usageMetrics.costBreakdown?.llmInferenceCostUsd === "number" ? `$${usageMetrics.costBreakdown.llmInferenceCostUsd.toFixed(6)}` : "chưa đo"}\n`;
+      reportDoc += `**Chi phí Search API (Ước tính):** ${typeof usageMetrics.costBreakdown?.searchCostUsd === "number" ? `$${usageMetrics.costBreakdown.searchCostUsd.toFixed(6)}` : "$0.000000"}\n`;
+      reportDoc += `**Tổng chi phí kỹ thuật (Ước tính):** ${typeof usageMetrics.estimatedCostUsd === "number" ? `$${usageMetrics.estimatedCostUsd.toFixed(6)}` : (usageMetrics.estimatedCostUsd || "chưa đo")}\n`;
+      reportDoc += `**Lưu ý chi phí:** *Ước tính mang tính tham khảo kỹ thuật dựa trên khối lượng token và số lượt gọi API, không đại diện cho hóa đơn thanh toán thực tế (invoicing) từ nhà cung cấp.*\n`;
     }
     reportDoc += `**Thời gian khởi tạo:** ${new Date().toLocaleString()}\n`;
     reportDoc += `\n---\n\n## 📝 Nội Dung Báo Cáo\n\n${text}\n\n`;
