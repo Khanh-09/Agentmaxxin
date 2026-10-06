@@ -6,13 +6,19 @@
  * and `parameters` to know WHAT to pass in.
  */
 import {
+  estimateGasFees,
   executeOnChainTransfer,
+  getERC20Balance,
   getTransactionStatus,
   getWalletInfo,
   payAndFetch,
   prepareTransferProposal,
+  readSmartContract,
+  resolveWeb3Name,
+  simulateTokenSwap,
 } from "./wallet";
 import { getUserFacts, saveUserFact } from "./memory";
+
 
 export type Tool = {
   name: string;
@@ -484,4 +490,87 @@ export const tools: Tool[] = [
       return { rolls, total: sum, sides, count: numRolls };
     },
   },
+
+  // ─── 15. Web3 Name & Basename / ENS Resolver ───
+  {
+    name: "resolve_web3_name",
+    category: "crypto",
+    description: "Resolve Web3 domain names (Basenames such as 'user.base.eth' or ENS 'vitalik.eth') or format 0x addresses.",
+    parameters: {
+      type: "object",
+      properties: {
+        nameOrAddress: {
+          type: "string",
+          description: "Domain name (e.g. 'khanh.base.eth', 'vitalik.eth') or 0x Ethereum address",
+        },
+      },
+      required: ["nameOrAddress"],
+    },
+    run: async ({ nameOrAddress }) => resolveWeb3Name(String(nameOrAddress)),
+  },
+
+  // ─── 16. ERC-20 Token Balance Checker (USDC, WETH, etc.) ───
+  {
+    name: "get_erc20_balance",
+    category: "crypto",
+    description: "Check the balance of any ERC-20 token (such as USDC, WETH) on Base Sepolia for the agent or any address.",
+    parameters: {
+      type: "object",
+      properties: {
+        token: {
+          type: "string",
+          description: "Token symbol (e.g. 'USDC', 'WETH') or 0x contract address",
+        },
+        walletAddress: {
+          type: "string",
+          description: "Optional 0x wallet address to inspect. Defaults to agent's own wallet.",
+        },
+      },
+      required: ["token"],
+    },
+    run: async ({ token, walletAddress }) => getERC20Balance(String(token), walletAddress),
+  },
+
+  // ─── 17. EIP-1559 Gas & Network Health Analyzer ───
+  {
+    name: "estimate_gas_and_fees",
+    category: "crypto",
+    description: "Analyze Base Sepolia network health, latest block timestamp, EIP-1559 base fee, and estimated transfer gas costs in USD.",
+    parameters: { type: "object", properties: {} },
+    run: async () => estimateGasFees(),
+  },
+
+  // ─── 18. Token Swap & DEX Slippage Simulator ───
+  {
+    name: "simulate_token_swap",
+    category: "crypto",
+    description: "Simulate a decentralized exchange (DEX) token swap between cryptocurrencies (e.g. ETH to USDC, BTC to ETH) with pool fees and slippage calculations.",
+    parameters: {
+      type: "object",
+      properties: {
+        fromToken: { type: "string", description: "Source token symbol (e.g. 'ETH', 'BTC', 'SOL')" },
+        toToken: { type: "string", description: "Target token symbol (e.g. 'USDC', 'ETH')" },
+        amount: { type: "string", description: "Amount of source token to swap (e.g. '0.5' or '100')" },
+      },
+      required: ["fromToken", "toToken", "amount"],
+    },
+    run: async ({ fromToken, toToken, amount }) => simulateTokenSwap(fromToken, toToken, amount),
+  },
+
+  // ─── 19. Smart Contract Bytecode & State Reader ───
+  {
+    name: "read_smart_contract",
+    category: "crypto",
+    description: "Inspect on-chain smart contract bytecode, verification status, and block explorer code links on Base Sepolia.",
+    parameters: {
+      type: "object",
+      properties: {
+        contractAddress: { type: "string", description: "0x address of the smart contract on Base Sepolia" },
+        functionName: { type: "string", description: "Function or view method to inspect (e.g. 'totalSupply', 'owner')" },
+      },
+      required: ["contractAddress"],
+    },
+    run: async ({ contractAddress, functionName = "view" }) => readSmartContract(contractAddress, functionName),
+  },
 ];
+

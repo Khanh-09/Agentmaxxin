@@ -54,11 +54,15 @@ type WalletInfo = {
 const EXAMPLES = [
   "Check my wallet info and current Base Sepolia balance",
   "Prepare transfer of 0.0001 ETH to 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
+  "Simulate swapping 0.5 ETH to USDC and analyze Base Sepolia gas fees",
+  "Resolve domain vitalik.eth and khanh.base.eth",
+  "Check my USDC and WETH token balances on Base Sepolia",
   "Check real-time weather in Hanoi and Tokyo",
   "Search the web for latest AI Agent trends with sources",
   "Compare current BTC, ETH and SOL prices in USD",
   "Scrape and summarize https://docs.base.org",
 ];
+
 
 export default function Home() {
   const [status, setStatus] = useState<Status | null>(null);

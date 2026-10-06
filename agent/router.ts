@@ -58,22 +58,48 @@ export function routeRequest(userMessage: string): RouteDecision {
     msg.includes("btc") ||
     msg.includes("eth") ||
     msg.includes("sol") ||
+    msg.includes("usdc") ||
+    msg.includes("weth") ||
     msg.includes("token") ||
+    msg.includes("swap") ||
+    msg.includes("quy đổi") ||
     msg.includes("base") ||
     msg.includes("wallet") ||
     msg.includes("ví") ||
+    msg.includes("transfer") ||
+    msg.includes("chuyển") ||
+    msg.includes("gửi tiền") ||
     msg.includes("gas") ||
     msg.includes("sepolia") ||
     msg.includes("blockchain") ||
+    msg.includes("contract") ||
+    msg.includes("hợp đồng") ||
+    msg.includes("ens") ||
+    msg.includes("basename") ||
+    msg.includes("0x") ||
     msg.includes("weather")
   ) {
     return {
       domain: "web3",
-      recommendedTools: ["get_crypto_price", "get_network_info", "get_my_wallet", "get_weather"],
+      recommendedTools: [
+        "get_wallet_info",
+        "prepare_transfer",
+        "confirm_transfer",
+        "get_transaction_status",
+        "get_erc20_balance",
+        "estimate_gas_and_fees",
+        "simulate_token_swap",
+        "resolve_web3_name",
+        "read_smart_contract",
+        "get_crypto_price",
+        "get_network_info",
+        "get_weather",
+      ],
       systemInstructionAddendum:
-        "MODE: Web3 & On-Chain Specialist. Fetch real-time market data from CoinGecko, read Base Sepolia RPC, and handle autonomous wallet micropayments smoothly.",
+        "MODE: Web3 & On-Chain Autonomous Specialist (Base Sepolia L2). When user wants to transfer, ALWAYS call `prepare_transfer` first for safety proposal verification. For token swaps, use `simulate_token_swap`. For gas and network health, use `estimate_gas_and_fees`. For domains (Basename / ENS), use `resolve_web3_name`.",
     };
   }
+
 
   // 4. Research & URL Scraper
   if (
