@@ -107,12 +107,66 @@ export async function executeBackgroundTask(params: {
               taskSources.push(pageSource);
             }
           }
+        } else if (step.tool === "get_weather") {
+          sideEffects.push(`Truy vấn thời tiết thời gian thực: ${(step.args as any)?.city || "Vị trí"}`);
+          taskSources.push({
+            sourceId: `src_weather_${taskSources.length + 1}`,
+            url: "https://open-meteo.com",
+            title: `Dịch vụ thời tiết trực tiếp Open-Meteo (${(step.args as any)?.city || "Vị trí"})`,
+            retrievedAt: new Date().toISOString(),
+            snippet: typeof resObj === "object" ? JSON.stringify(resObj) : String(resObj),
+            dataType: "snippet",
+            status: step.error ? "failed" : "retrieved",
+            error: step.error ? (resObj?.error || "Weather API error") : undefined,
+          });
+        } else if (step.tool === "get_wallet_balance" || step.tool === "get_token_balance") {
+          sideEffects.push(`Kiểm tra số dư ví trên Base L2`);
+          taskSources.push({
+            sourceId: `src_chain_${taskSources.length + 1}`,
+            url: "https://sepolia.basescan.org",
+            title: "Trạng thái On-chain Base Sepolia L2 RPC",
+            retrievedAt: new Date().toISOString(),
+            snippet: typeof resObj === "object" ? JSON.stringify(resObj) : String(resObj),
+            dataType: "snippet",
+            status: step.error ? "failed" : "retrieved",
+          });
+        } else if (step.tool === "search_knowledge_base") {
+          sideEffects.push(`Tra cứu tri thức RAG cục bộ: ${(step.args as any)?.query}`);
+          taskSources.push({
+            sourceId: `src_rag_${taskSources.length + 1}`,
+            url: "local://knowledge-base",
+            title: "Cơ sở tri thức RAG AgentMaxx",
+            retrievedAt: new Date().toISOString(),
+            snippet: typeof resObj === "object" ? JSON.stringify(resObj).slice(0, 300) : String(resObj).slice(0, 300),
+            dataType: "snippet",
+            status: step.error ? "failed" : "retrieved",
+          });
         } else if (step.tool === "prepare_transfer") {
           unreversibleActions.push(
             `Đã khởi tạo proposal chuyển tiền on-chain ID: ${resObj?.proposalId}`
           );
         } else if (step.tool === "audit_smart_contract_security") {
           sideEffects.push("Hoàn tất phân tích rủi ro hợp đồng thông minh.");
+          taskSources.push({
+            sourceId: `src_sec_${taskSources.length + 1}`,
+            url: "local://ast-security-engine",
+            title: "Hệ thống kiểm định an toàn AST Solidity",
+            retrievedAt: new Date().toISOString(),
+            snippet: typeof resObj === "object" ? JSON.stringify(resObj).slice(0, 300) : String(resObj).slice(0, 300),
+            dataType: "snippet",
+            status: step.error ? "failed" : "retrieved",
+          });
+        } else if (!step.error && resObj) {
+          // General verified tool result
+          taskSources.push({
+            sourceId: `src_tool_${taskSources.length + 1}`,
+            url: `tool://${step.tool}`,
+            title: `Kết quả thực thi công cụ: ${step.tool}`,
+            retrievedAt: new Date().toISOString(),
+            snippet: typeof resObj === "object" ? JSON.stringify(resObj).slice(0, 300) : String(resObj).slice(0, 300),
+            dataType: "snippet",
+            status: "retrieved",
+          });
         }
       }
     }

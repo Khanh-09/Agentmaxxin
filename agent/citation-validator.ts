@@ -188,9 +188,24 @@ export function validateCitationsAndAnalyzeEvidence(params: {
   const retrievedSourcesCount = sources.filter((s) => s.status === "retrieved").length;
   let outcome: "complete" | "partial" | "insufficient_evidence";
 
-  if (retrievedSourcesCount === 0 || textLower.includes("chưa có đủ dữ liệu") || textLower.includes("không tìm thấy")) {
+  const hasExplicitZeroData =
+    textLower.includes("chưa có đủ dữ liệu") ||
+    textLower.includes("không tìm thấy dữ liệu") ||
+    textLower.includes("không tồn tại trong hệ thống") ||
+    textLower.includes("zero-data");
+
+  const hasOnlyWebSnippets =
+    sources.length > 0 &&
+    sources.some((s) => s.url.startsWith("http") && !s.sourceId.startsWith("src_weather") && !s.sourceId.startsWith("src_chain") && !s.sourceId.startsWith("src_tool")) &&
+    sources.every((s) => s.dataType === "snippet");
+
+  if (retrievedSourcesCount === 0 || hasExplicitZeroData) {
     outcome = "insufficient_evidence";
-  } else if (unsupportedClaimsCount > 0 || sources.some((s) => s.status === "failed") || sources.every((s) => s.dataType === "snippet")) {
+  } else if (
+    unsupportedClaimsCount > 0 ||
+    sources.some((s) => s.status === "failed") ||
+    hasOnlyWebSnippets
+  ) {
     outcome = "partial";
   } else {
     outcome = "complete";
