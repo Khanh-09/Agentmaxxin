@@ -1,4 +1,4 @@
-import { MODEL, runAgent } from "@/agent/agent";
+import { MODEL, runGraph } from "@/agent/graph";
 import { tools } from "@/agent/tools";
 
 // GET /api/agent -> setup status + the list of tools (shown on the page)
@@ -18,7 +18,7 @@ export async function POST(req: Request) {
 
   const { messages } = await req.json();
   try {
-    const result = await runAgent(messages, { baseUrl: new URL(req.url).origin });
+    const result = await runGraph(messages, { baseUrl: new URL(req.url).origin });
     return Response.json(result);
   } catch (err) {
     return Response.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 });

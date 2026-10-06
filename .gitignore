@@ -3,6 +3,7 @@ node_modules
 .env
 .agent-wallet.json
 .agent-memory.json
+.agent-runs.jsonl
 next-env.d.ts
 *.tsbuildinfo
 .DS_Store
