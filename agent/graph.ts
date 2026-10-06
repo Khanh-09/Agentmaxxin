@@ -6,8 +6,8 @@
  */
 import { GoogleGenAI, type Content, type Part } from "@google/genai";
 import { tools } from "./tools";
-import { getUserFacts } from "./memory";
 import { routeRequest, type RouteDecision } from "./router";
+import { getUserFacts, autoExtractAndSaveConversationMemory } from "./memory";
 import { evaluateResponse, type EvaluationResult } from "./evaluate";
 import { logExecution } from "./logger";
 import { queryKnowledgeBase, getAgentLearnings } from "./knowledge";
@@ -245,7 +245,13 @@ ${route.systemInstructionAddendum}
   // ─── STAGE 3: EVALUATE NODE (Groundedness & Criteria Scoring) ───
   const evaluation = evaluateResponse(lastUserMsg, finalAnswer, steps, route.domain);
 
-  // ─── STAGE 3.5: ACTIVE LEARNING & IN-CONTEXT ADAPTATION ───
+  // ─── STAGE 3.5: ACTIVE LEARNING & IN-CONTEXT ADAPTATION & AUTO-MEMORY ───
+  try {
+    autoExtractAndSaveConversationMemory(lastUserMsg, finalAnswer);
+  } catch (memErr) {
+    console.warn("[Memory] Auto extraction warning:", memErr);
+  }
+
   if (evaluation.verdict === "PASS" && evaluation.score >= 90 && steps.length > 0) {
     recordHighRewardExemplar(
       route.domain,

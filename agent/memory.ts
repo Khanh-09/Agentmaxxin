@@ -63,3 +63,62 @@ export function removeUserFact(key: string): { success: boolean; key: string } {
   return { success: true, key: cleanKey };
 }
 
+/**
+ * AUTOMATIC CONVERSATION MEMORY EXTRACTION & LEARNING:
+ * Automatically parses user chat turns to extract long-term preferences,
+ * project context, identity, and conversation state into persistent memory.
+ */
+export function autoExtractAndSaveConversationMemory(
+  userMsg: string,
+  agentReply: string
+): Array<{ key: string; value: string }> {
+  const extracted: Array<{ key: string; value: string }> = [];
+  const text = userMsg.trim();
+  const lower = text.toLowerCase();
+
+  // 1. Name / Identity extraction
+  const nameMatch =
+    lower.match(/(?:tôi tên là|tên tôi là|gọi tôi là|my name is|i am)\s+([a-zA-Z0-9_\u00C0-\u1EF9\s]{2,25})/i);
+  if (nameMatch && nameMatch[1]) {
+    const name = nameMatch[1].trim();
+    saveUserFact("user_name", name);
+    extracted.push({ key: "user_name", value: name });
+  }
+
+  // 2. Preferences / Interests
+  const prefMatch =
+    lower.match(/(?:tôi thích|sở thích của tôi là|i like|i prefer)\s+([^\n.!?]{3,60})/i);
+  if (prefMatch && prefMatch[1]) {
+    const pref = prefMatch[1].trim();
+    saveUserFact("user_preference", pref);
+    extracted.push({ key: "user_preference", value: pref });
+  }
+
+  // 3. Location / City
+  const locMatch =
+    lower.match(/(?:tôi ở|tôi sống tại|tại|ở)\s+(hà nội|hồ chí minh|đà nẵng|sài gòn|hải phòng|cần thơ|tokyo|singapore|new york)/i);
+  if (locMatch && locMatch[1]) {
+    const loc = locMatch[1].trim();
+    saveUserFact("user_location", loc);
+    extracted.push({ key: "user_location", value: loc });
+  }
+
+  // 4. Wallet / Web3 Address
+  const walletMatch = text.match(/0x[a-fA-F0-9]{40}/);
+  if (walletMatch) {
+    saveUserFact("user_evm_address", walletMatch[0]);
+    extracted.push({ key: "user_evm_address", value: walletMatch[0] });
+  }
+
+  // 5. General active context / Last conversation theme
+  if (text.length > 5 && !text.startsWith("/")) {
+    const cleanTopic = text.slice(0, 80).replace(/[\r\n]+/g, " ");
+    saveUserFact("last_interaction_topic", cleanTopic);
+    saveUserFact("last_interaction_timestamp", new Date().toLocaleString("vi-VN"));
+    extracted.push({ key: "last_interaction_topic", value: cleanTopic });
+  }
+
+  return extracted;
+}
+
+
