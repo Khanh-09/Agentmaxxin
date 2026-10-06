@@ -285,7 +285,7 @@ async function runBenchmarkSuite() {
   console.log("================================================================================");
   console.log(`- Tổng số tác vụ:          ${BENCHMARK_TASKS.length}`);
   console.log(`- Tác vụ hoàn thành đạt:   ${passedCount}/${BENCHMARK_TASKS.length} (${completionRate}%)`);
-  console.log(`- Tỷ lệ lỗi trích dẫn:     0.0% (Phát hiện 100% trích dẫn ma & sai lệch)`);
+  console.log(`- Kiểm chứng trích dẫn:    Phát hiện các citation không tồn tại và nguồn không hợp lệ trong những kịch bản đã kiểm thử.`);
   console.log(`- Tổng thời gian chạy:     ${totalDuration}ms (Trung bình: ${avgLatency}ms/tác vụ)`);
   console.log(`- Ước tính chi phí API:    ~$0.0004 USD (Sử dụng Free Tier RPC & Cache)`);
   console.log("================================================================================\n");
