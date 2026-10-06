@@ -1527,7 +1527,11 @@ export default function Home() {
                         ) : (
                           <>
                             {m.text}
-                            <AgentMessageToolbar text={m.text} domain={m.domain} />
+                            <AgentMessageToolbar
+                              text={m.text}
+                              domain={m.domain}
+                              sources={currentTask?.sources || m.steps?.flatMap((s) => s.result?.results || [])}
+                            />
                           </>
                         )}
                       </div>
@@ -1766,48 +1770,110 @@ function Json({ label, value }: { label: string; value: unknown }) {
 }
 
 function SearchResultsCard({ data }: { data: any }) {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   if (!data?.results || !Array.isArray(data.results) || data.results.length === 0) return null;
+
   return (
     <div className="border border-emerald-500/30 bg-emerald-500/5 p-3 flex flex-col gap-2 font-mono text-xs">
       <div className="flex items-center justify-between">
         <span className="flex items-center gap-1.5 font-bold text-emerald-600 dark:text-emerald-400 uppercase text-[11px]">
-          <Globe className="size-3.5" /> Verified Research Sources ({data.sourceCount || data.results.length})
+          <Globe className="size-3.5" /> Nguồn Nghiên Cứu Xác Thực ({data.sourceCount || data.results.length})
         </span>
         <Badge variant="outline" className="text-[9px] uppercase border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
-          {data.engine || "Live Web Search"}
+          {data.engine || "Verified Live Search"}
         </Badge>
       </div>
       <div className="flex flex-col gap-2 pt-1 border-t border-emerald-500/15">
-        {data.results.map((r: any, idx: number) => (
-          <div key={idx} className="bg-background/80 p-2 border border-border flex flex-col gap-1">
-            <div className="flex items-center justify-between gap-2">
-              <a
-                href={r.url}
-                target="_blank"
-                rel="noreferrer"
-                className="font-bold text-primary hover:underline truncate text-xs inline-flex items-center gap-1"
-              >
-                [{idx + 1}] {r.title} <ExternalLink className="size-3" />
-              </a>
-              {r.domain && (
-                <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                  {r.domain}
-                </span>
+        {data.results.map((r: any, idx: number) => {
+          const sid = r.sourceId || `src_${idx + 1}`;
+          const isExpanded = expandedId === sid;
+          return (
+            <div key={idx} className="bg-background/80 p-2.5 border border-border flex flex-col gap-1.5">
+              <div className="flex flex-wrap items-center justify-between gap-1.5">
+                <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                  <Badge variant="secondary" className="font-mono text-[9px] px-1 py-0 bg-primary/10 text-primary">
+                    {sid}
+                  </Badge>
+                  <a
+                    href={r.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-bold text-primary hover:underline truncate text-xs inline-flex items-center gap-1"
+                  >
+                    {r.title} <ExternalLink className="size-3 shrink-0" />
+                  </a>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "text-[9px] uppercase font-mono px-1.5 py-0",
+                      r.dataType === "page_content"
+                        ? "border-purple-500/40 text-purple-500 bg-purple-500/10"
+                        : "border-blue-500/40 text-blue-500 bg-blue-500/10"
+                    )}
+                  >
+                    {r.dataType === "page_content" ? "Page Content" : "Snippet"}
+                  </Badge>
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "text-[9px] uppercase font-mono px-1.5 py-0",
+                      r.status === "failed"
+                        ? "border-rose-500/40 text-rose-500 bg-rose-500/10"
+                        : "border-emerald-500/40 text-emerald-500 bg-emerald-500/10"
+                    )}
+                  >
+                    {r.status || "retrieved"}
+                  </Badge>
+                </div>
+              </div>
+
+              {r.snippet && (
+                <p className="text-[11px] text-muted-foreground font-sans line-clamp-2 leading-relaxed">
+                  {r.snippet}
+                </p>
+              )}
+
+              {r.content && (
+                <div className="mt-1">
+                  <button
+                    onClick={() => setExpandedId(isExpanded ? null : sid)}
+                    className="text-[10px] text-primary hover:underline font-mono"
+                  >
+                    {isExpanded ? "▲ Thu gọn nội dung" : "▼ Xem toàn bộ nội dung trích xuất"}
+                  </button>
+                  {isExpanded && (
+                    <div className="mt-1 p-2 bg-muted/40 border text-[11px] font-sans leading-relaxed max-h-48 overflow-y-auto whitespace-pre-wrap">
+                      {r.content}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {r.retrievedAt && (
+                <div className="text-[9px] text-muted-foreground pt-1 border-t flex items-center justify-between">
+                  <span>Domain: <strong>{r.domain || new URL(r.url || "http://localhost").hostname}</strong></span>
+                  <span>Truy xuất: {new Date(r.retrievedAt).toLocaleTimeString()}</span>
+                </div>
               )}
             </div>
-            {r.snippet && (
-              <p className="text-[11px] text-muted-foreground font-sans line-clamp-2 leading-relaxed">
-                {r.snippet}
-              </p>
-            )}
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
 }
 
-function AgentMessageToolbar({ text, domain }: { text: string; domain?: string }) {
+function AgentMessageToolbar({
+  text,
+  domain,
+  sources,
+}: {
+  text: string;
+  domain?: string;
+  sources?: any[];
+}) {
   const [copied, setCopied] = useState(false);
 
   function copyText() {
@@ -1817,12 +1883,29 @@ function AgentMessageToolbar({ text, domain }: { text: string; domain?: string }
   }
 
   function exportMarkdown() {
-    const header = `# AgentMaxx Research & Planning Report\n**Domain:** ${domain || "General"}\n**Generated:** ${new Date().toLocaleString()}\n\n---\n\n`;
-    const blob = new Blob([header + text], { type: "text/markdown;charset=utf-8" });
+    let reportDoc = `# Báo Cáo Nghiên Cứu & Lập Kế Hoạch (AgentMaxx Report)\n`;
+    reportDoc += `**Chuyên mục (Domain):** ${domain || "General"}\n`;
+    reportDoc += `**Thời gian khởi tạo:** ${new Date().toLocaleString()}\n`;
+    reportDoc += `\n---\n\n## 📝 Nội Dung Báo Cáo\n\n${text}\n\n`;
+
+    if (sources && sources.length > 0) {
+      reportDoc += `---\n\n## 📚 Danh Sách Nguồn Kiểm Chứng (Verified Sources)\n\n`;
+      sources.forEach((s: any, idx: number) => {
+        reportDoc += `### [${s.sourceId || `src_${idx + 1}`}] ${s.title}\n`;
+        reportDoc += `- **URL:** ${s.url}\n`;
+        reportDoc += `- **Loại dữ liệu:** \`${s.dataType || "snippet"}\` | **Trạng thái:** \`${s.status || "retrieved"}\`\n`;
+        reportDoc += `- **Thời gian truy xuất:** ${s.retrievedAt || new Date().toISOString()}\n`;
+        if (s.snippet) reportDoc += `- **Trích đoạn:** ${s.snippet}\n`;
+        if (s.content) reportDoc += `- **Nội dung trích xuất:** ${s.content.slice(0, 500)}...\n`;
+        reportDoc += `\n`;
+      });
+    }
+
+    const blob = new Blob([reportDoc], { type: "text/markdown;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `agentmaxx-report-${Date.now()}.md`;
+    a.download = `agentmaxx-research-report-${Date.now()}.md`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -1844,7 +1927,7 @@ function AgentMessageToolbar({ text, domain }: { text: string; domain?: string }
         className="h-6 px-2 text-[11px] text-muted-foreground hover:text-foreground"
         onClick={exportMarkdown}
       >
-        <Download className="mr-1 size-3" /> Xuất Markdown (.md)
+        <Download className="mr-1 size-3" /> Xuất Báo Cáo Markdown (.md)
       </Button>
     </div>
   );

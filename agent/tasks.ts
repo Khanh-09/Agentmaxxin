@@ -12,6 +12,27 @@ export type TaskStatus =
   | "cancelled"
   | "interrupted";
 
+export type TaskSource = {
+  sourceId: string; // e.g. "src_1", "src_2"
+  url: string;
+  title: string;
+  retrievedAt: string;
+  snippet?: string;
+  content?: string;
+  dataType: "snippet" | "page_content";
+  status: "retrieved" | "failed" | "partial";
+  error?: string;
+};
+
+export type TaskReport = {
+  summary: string;
+  keyFindings: string[];
+  evidenceStatements: Array<{ statement: string; sourceIds: string[] }>;
+  uncertaintiesAndConflicts: string[];
+  actionableSteps: string[];
+  hasSufficientEvidence: boolean;
+};
+
 export type AgentTask = {
   id: string;
   projectId: string;
@@ -30,6 +51,8 @@ export type AgentTask = {
     detail?: string;
   }>;
   toolSteps?: Array<{ tool: string; args: any; result: any; error?: boolean }>;
+  sources?: TaskSource[];
+  report?: TaskReport;
   result?: string;
   error?: string;
   sideEffects?: string[];

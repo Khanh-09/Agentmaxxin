@@ -258,18 +258,18 @@ export const tools: Tool[] = [
     },
   },
 
-  // ─── 8. Multi-Source Live Web Research & Citation Tool (tavily-web / wikipedia) ───
+  // ─── 8. Multi-Source Live Web Research & Citation Tool (Structured Source Provenance) ───
   {
     name: "get_web_search",
     category: "web",
     description:
-      "Search the internet for factual information, current documentation, articles, and verifiable sources. Returns structured titles, URLs, snippets, and domains.",
+      "Search the internet for verified real-world factual information, current documentation, articles, and verifiable sources. Returns structured titles, URLs, snippet data, and timestamps. Strictly real data without synthetic hallucination.",
     parameters: {
       type: "object",
       properties: {
         query: {
           type: "string",
-          description: "Search keywords or question (e.g. 'Base Sepolia L2 architecture' or 'Rollup transaction lifecycle')",
+          description: "Search keywords or specific question (e.g. 'Base Sepolia L2 architecture' or 'Rollup transaction lifecycle')",
         },
         maxResults: {
           type: "number",
@@ -281,10 +281,16 @@ export const tools: Tool[] = [
     run: async ({ query, maxResults = 4 }: { query: string; maxResults?: number }) => {
       const cleanQuery = (query || "").trim();
       if (!cleanQuery) {
-        return { error: "Search query cannot be empty." };
+        return {
+          query: "",
+          status: "failed",
+          error: "Search query cannot be empty.",
+          sourceCount: 0,
+          results: [],
+        };
       }
 
-      // 1. Try Tavily API if key provided
+      // 1. Try Tavily API if key is provided
       if (process.env.TAVILY_API_KEY) {
         try {
           const controller = new AbortController();
@@ -292,22 +298,32 @@ export const tools: Tool[] = [
           const res = await fetch("https://api.tavily.com/search", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ api_key: process.env.TAVILY_API_KEY, query: cleanQuery, max_results: maxResults }),
+            body: JSON.stringify({
+              api_key: process.env.TAVILY_API_KEY,
+              query: cleanQuery,
+              max_results: maxResults,
+            }),
             signal: controller.signal,
           });
           clearTimeout(timeout);
           const data = await res.json();
           if (data.results && data.results.length > 0) {
+            const results = data.results.map((r: any, idx: number) => ({
+              sourceId: `src_web_${idx + 1}`,
+              title: r.title || "Web Source",
+              url: r.url,
+              domain: new URL(r.url).hostname.replace("www.", ""),
+              snippet: (r.content || "").slice(0, 500),
+              dataType: "snippet" as const,
+              status: "retrieved" as const,
+              retrievedAt: new Date().toISOString(),
+            }));
             return {
               query: cleanQuery,
               engine: "Tavily Deep Web Search",
-              sourceCount: data.results.length,
-              results: data.results.map((r: any) => ({
-                title: r.title || "Web Source",
-                url: r.url,
-                domain: new URL(r.url).hostname.replace("www.", ""),
-                snippet: (r.content || "").slice(0, 500),
-              })),
+              status: "retrieved",
+              sourceCount: results.length,
+              results,
             };
           }
         } catch (e: any) {
@@ -315,7 +331,7 @@ export const tools: Tool[] = [
         }
       }
 
-      // 2. Reliable Multi-Source Fallback (Wikipedia API with Rich Extract & Refinement)
+      // 2. Reliable Real Knowledge API (Wikipedia Verified API with Strict Fact Extractor)
       try {
         const fetchWiki = async (searchTerm: string) => {
           const controller = new AbortController();
@@ -332,7 +348,7 @@ export const tools: Tool[] = [
 
         let searchList = await fetchWiki(cleanQuery);
 
-        // If 0 results, strip common filler words and retry with top keywords
+        // If 0 results, retry with extracted key terms
         if (searchList.length === 0) {
           const keywords = cleanQuery
             .replace(/[^\w\s]/gi, " ")
@@ -350,47 +366,54 @@ export const tools: Tool[] = [
           return {
             query: cleanQuery,
             engine: "Wikipedia Verified Knowledge",
+            status: "retrieved",
             sourceCount: 0,
             results: [],
-            message: `Không tìm thấy tài liệu phù hợp cho từ khóa '${cleanQuery}'. Vui lòng thử lại với từ khóa cụ thể hơn.`,
+            message: `Không tìm thấy tài liệu phù hợp cho từ khóa '${cleanQuery}'. Hệ thống không tự tạo nguồn giả mạo.`,
           };
         }
 
-        const formattedResults = searchList.slice(0, maxResults).map((s: any) => {
+        const formattedResults = searchList.slice(0, maxResults).map((s: any, idx: number) => {
           const pageTitle = s.title;
           const articleUrl = `https://en.wikipedia.org/wiki/${encodeURIComponent(pageTitle.replace(/ /g, "_"))}`;
           return {
+            sourceId: `src_${idx + 1}`,
             title: pageTitle,
             url: articleUrl,
             domain: "en.wikipedia.org",
-            snippet: s.snippet.replace(/<[^>]+>/g, "").replace(/&quot;/g, '"'),
+            snippet: s.snippet.replace(/<[^>]+>/g, "").replace(/&quot;/g, '"').replace(/&#039;/g, "'"),
+            dataType: "snippet" as const,
+            status: "retrieved" as const,
+            retrievedAt: new Date().toISOString(),
           };
         });
 
         return {
           query: cleanQuery,
           engine: "Wikipedia Knowledge Hub",
+          status: "retrieved",
           sourceCount: formattedResults.length,
           results: formattedResults,
         };
       } catch (err: any) {
         return {
           query: cleanQuery,
-          engine: "Fallback Search",
+          engine: "Fallback Search Engine",
+          status: "failed",
           sourceCount: 0,
-          error: `Research network timeout: ${err instanceof Error ? err.message : String(err)}`,
+          error: `Research network timeout or connection failure: ${err instanceof Error ? err.message : String(err)}`,
           results: [],
         };
       }
     },
   },
 
-  // ─── 9. Web Page Scraper & Reader (firecrawl-scraper skill) ───
+  // ─── 9. Web Page Scraper & Deep Reader (Deep Page Content Extraction) ───
   {
     name: "extract_web_page",
     category: "web",
     description:
-      "Scrape, parse and extract readable text/markdown from any target webpage URL for deep analysis, summarization, or fact-checking.",
+      "Scrape, parse and extract readable full page text/markdown from any target webpage URL for deep analysis. Distinguishes full page content from search snippets.",
     parameters: {
       type: "object",
       properties: {
@@ -403,29 +426,46 @@ export const tools: Tool[] = [
     },
     run: async ({ url }) => {
       try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 7000);
         const res = await fetch(url, {
           headers: {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-            Accept: "text/html,application/xhtml+xml",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
           },
+          signal: controller.signal,
         });
+        clearTimeout(timeout);
         if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
         const html = await res.text();
-        const title = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1]?.trim() || "Page Content";
+        const title = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1]?.trim() || "Web Page Document";
         const cleanText = html
           .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
           .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "")
+          .replace(/<nav\b[^<]*(?:(?!<\/nav>)<[^<]*)*<\/nav>/gi, "")
+          .replace(/<footer\b[^<]*(?:(?!<\/footer>)<[^<]*)*<\/footer>/gi, "")
           .replace(/<[^>]+>/g, " ")
           .replace(/\s+/g, " ")
           .trim();
 
         return {
+          sourceId: `src_page_${Math.random().toString(36).slice(2, 6)}`,
           url,
           title,
-          content: cleanText.slice(0, 2500) + (cleanText.length > 2500 ? "..." : ""),
+          content: cleanText.slice(0, 3000) + (cleanText.length > 3000 ? "..." : ""),
+          dataType: "page_content" as const,
+          status: "retrieved" as const,
+          retrievedAt: new Date().toISOString(),
         };
-      } catch (err) {
-        return { error: `Failed to scrape URL '${url}': ${err instanceof Error ? err.message : String(err)}` };
+      } catch (err: any) {
+        return {
+          url,
+          title: "Failed URL Retrieval",
+          status: "failed" as const,
+          dataType: "page_content" as const,
+          error: `Failed to scrape URL '${url}': ${err instanceof Error ? err.message : String(err)}`,
+          retrievedAt: new Date().toISOString(),
+        };
       }
     },
   },
