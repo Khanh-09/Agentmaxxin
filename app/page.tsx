@@ -250,6 +250,13 @@ export default function Home() {
     setThinking(false);
   }
 
+  function retryLastMessage() {
+    const lastUserMsg = [...messages].reverse().find((m) => m.role === "user");
+    if (lastUserMsg && !thinking) {
+      send(lastUserMsg.text);
+    }
+  }
+
   const ready = Boolean(status?.hasApiKey);
 
   return (
@@ -661,11 +668,28 @@ export default function Home() {
                       <div
                         className={cn(
                           "px-4 py-3 whitespace-pre-wrap text-sm leading-relaxed",
-                          m.error ? "flex gap-2 bg-destructive/10 text-destructive border border-destructive/20" : "bg-muted"
+                          m.error ? "bg-destructive/10 text-destructive border border-destructive/20" : "bg-muted"
                         )}
                       >
-                        {m.error && <CircleAlert className="mt-0.5 size-4 shrink-0" />}
-                        {m.text}
+                        {m.error ? (
+                          <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div className="flex items-center gap-2">
+                              <CircleAlert className="size-4 shrink-0" />
+                              <span>{m.text}</span>
+                            </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs border-destructive/40 text-destructive hover:bg-destructive/10"
+                              onClick={retryLastMessage}
+                              disabled={thinking}
+                            >
+                              <RefreshCw className="mr-1 size-3" /> Thử lại
+                            </Button>
+                          </div>
+                        ) : (
+                          m.text
+                        )}
                       </div>
                     </div>
                   </div>
