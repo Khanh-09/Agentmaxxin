@@ -26,7 +26,14 @@ type Message = { role: "user" | "agent"; text: string; steps?: Step[]; error?: b
 type Status = { hasApiKey: boolean; model: string; tools: { name: string; description: string }[] };
 type WalletInfo = { address: string | null; balance?: string };
 
-const EXAMPLES = ["What's the weather in Mumbai?", "What's in your wallet?", "Roll a 20 sided dice"];
+const EXAMPLES = [
+  "What is the current BTC and ETH price?",
+  "Check Base Sepolia network gas and latest block",
+  "What's in your wallet?",
+  "Calculate 5000 * (1 + 0.08)^4",
+  "Roll 3 20-sided dice",
+  "What's the weather in Tokyo?",
+];
 
 export default function Home() {
   const [status, setStatus] = useState<Status | null>(null);
