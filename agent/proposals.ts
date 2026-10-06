@@ -430,7 +430,21 @@ export async function checkAndUpdateProposalReceipt(
     try {
       const tx = await publicClient.getTransaction({ hash: p.txHash as Hex });
       if (tx) {
-        // Reconcile Recipient Address
+        // Reconcile Sender Address (from)
+        if (p.from && p.from !== "0x0000000000000000000000000000000000000000") {
+          if (tx.from && tx.from.toLowerCase() !== p.from.toLowerCase()) {
+            const proposals = readProposals();
+            const idx = proposals.findIndex((item) => item.id === proposalId);
+            if (idx !== -1) {
+              proposals[idx].status = "FAILED";
+              proposals[idx].error = `Security Alert: Sender mismatch! Expected ${p.from}, blockchain has ${tx.from}`;
+              writeProposals(proposals);
+              return { success: false, proposal: proposals[idx], confirmed: false, error: proposals[idx].error };
+            }
+          }
+        }
+
+        // Reconcile Recipient Address (to)
         if (tx.to && tx.to.toLowerCase() !== p.to.toLowerCase()) {
           const proposals = readProposals();
           const idx = proposals.findIndex((item) => item.id === proposalId);
