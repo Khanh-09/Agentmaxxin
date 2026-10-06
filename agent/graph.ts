@@ -81,15 +81,22 @@ export async function runGraph(
   // ─── STAGE 2: EXECUTE NODE (Gemini Function Calling Loop) ───
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   
-  // Context Window Optimization: Keep first intent + recent turns if history is long
-  const optimizedHistory = history.length > 8
-    ? [history[0], ...history.slice(-7)]
+  // Context Window & Latency Optimization: Keep initial intent + recent turns, trimming older agent turns
+  const optimizedHistory = history.length > 6
+    ? [history[0], ...history.slice(-5)]
     : history;
 
-  const contents: Content[] = optimizedHistory.map((m) => ({
-    role: m.role === "user" ? "user" : "model",
-    parts: [{ text: m.text }],
-  }));
+  const contents: Content[] = optimizedHistory.map((m, idx) => {
+    let text = m.text;
+    // Condense older agent messages to avoid token bloat and reduce TTFT
+    if (m.role === "agent" && idx < optimizedHistory.length - 1 && text.length > 500) {
+      text = text.slice(0, 500) + "\n...[Nội dung tóm tắt để tối ưu tốc độ]";
+    }
+    return {
+      role: m.role === "user" ? "user" : "model",
+      parts: [{ text }],
+    };
+  });
   const steps: Step[] = [];
 
   let llmCallsCount = 0;

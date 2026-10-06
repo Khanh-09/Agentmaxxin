@@ -378,7 +378,7 @@ export const tools: Tool[] = [
       try {
         const fetchWiki = async (searchTerm: string) => {
           const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 5000);
+          const timeout = setTimeout(() => controller.abort(), 3000);
           const searchUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(searchTerm)}&utf8=&format=json`;
           const res = await fetch(searchUrl, {
             headers: { "User-Agent": "AgentMaxx-ResearchEngine/2.0 (Academic & Planning Agent)" },
