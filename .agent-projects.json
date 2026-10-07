@@ -1,5 +1,123 @@
 [
   {
+    "id": "proj_beta_1791340277446",
+    "userId": "guest_a5431eaed7a74110",
+    "title": "Project Beta - NFT Faucet",
+    "objective": "Distribute NFT badges to testnet users",
+    "status": "ACTIVE",
+    "domain": "general",
+    "messages": [
+      {
+        "id": "msg_1791340277504_0_0kr",
+        "role": "user",
+        "text": "Tạo NFT faucet",
+        "content": "Tạo NFT faucet",
+        "createdAt": "2026-10-07T02:31:17.504Z"
+      }
+    ],
+    "currentTaskStatus": "queued",
+    "createdAt": "2026-10-07T02:31:17.504Z",
+    "updatedAt": "2026-10-07T02:31:17.504Z"
+  },
+  {
+    "id": "proj_alpha_1791340277446",
+    "userId": "guest_a5431eaed7a74110",
+    "title": "Project Alpha - DeFi Arbitrage",
+    "objective": "Build arbitrage bot on Base Sepolia",
+    "status": "ACTIVE",
+    "domain": "general",
+    "messages": [
+      {
+        "id": "msg_1791340277488_0_m5y",
+        "role": "user",
+        "text": "Nhớ rằng gas_limit_max = 500000 cho dự án Alpha",
+        "content": "Nhớ rằng gas_limit_max = 500000 cho dự án Alpha",
+        "createdAt": "2026-10-07T02:31:17.488Z"
+      }
+    ],
+    "currentTaskStatus": "queued",
+    "createdAt": "2026-10-07T02:31:17.488Z",
+    "updatedAt": "2026-10-07T02:31:17.500Z",
+    "handoffSummary": {
+      "objective": "Build arbitrage bot on Base Sepolia",
+      "decisions": [
+        "Use Base Sepolia testnet",
+        "Max gas limit 500,000"
+      ],
+      "completedWork": [
+        "Configured provider",
+        "Set up wallet"
+      ],
+      "pendingWork": [
+        "Write smart contract adapter",
+        "Deploy proposal worker"
+      ],
+      "relevantTasks": [
+        "task_init_1"
+      ],
+      "lastUpdated": "2026-10-07T02:31:17.499Z"
+    }
+  },
+  {
+    "id": "proj_beta_1791339051346",
+    "userId": "guest_010efa70cba44bac",
+    "title": "Project Beta - NFT Faucet",
+    "objective": "Distribute NFT badges to testnet users",
+    "status": "ACTIVE",
+    "domain": "general",
+    "messages": [
+      {
+        "id": "msg_1791339051376_0_p4g",
+        "role": "user",
+        "text": "Tạo NFT faucet",
+        "content": "Tạo NFT faucet",
+        "createdAt": "2026-10-07T02:10:51.376Z"
+      }
+    ],
+    "currentTaskStatus": "queued",
+    "createdAt": "2026-10-07T02:10:51.376Z",
+    "updatedAt": "2026-10-07T02:10:51.376Z"
+  },
+  {
+    "id": "proj_alpha_1791339051346",
+    "userId": "guest_010efa70cba44bac",
+    "title": "Project Alpha - DeFi Arbitrage",
+    "objective": "Build arbitrage bot on Base Sepolia",
+    "status": "ACTIVE",
+    "domain": "general",
+    "messages": [
+      {
+        "id": "msg_1791339051358_0_4wc",
+        "role": "user",
+        "text": "Nhớ rằng gas_limit_max = 500000 cho dự án Alpha",
+        "content": "Nhớ rằng gas_limit_max = 500000 cho dự án Alpha",
+        "createdAt": "2026-10-07T02:10:51.358Z"
+      }
+    ],
+    "currentTaskStatus": "queued",
+    "createdAt": "2026-10-07T02:10:51.358Z",
+    "updatedAt": "2026-10-07T02:10:51.370Z",
+    "handoffSummary": {
+      "objective": "Build arbitrage bot on Base Sepolia",
+      "decisions": [
+        "Use Base Sepolia testnet",
+        "Max gas limit 500,000"
+      ],
+      "completedWork": [
+        "Configured provider",
+        "Set up wallet"
+      ],
+      "pendingWork": [
+        "Write smart contract adapter",
+        "Deploy proposal worker"
+      ],
+      "relevantTasks": [
+        "task_init_1"
+      ],
+      "lastUpdated": "2026-10-07T02:10:51.369Z"
+    }
+  },
+  {
     "id": "proj_beta_1791286058164",
     "userId": "guest_d84ad3ebee864a00",
     "title": "Project Beta - NFT Faucet",

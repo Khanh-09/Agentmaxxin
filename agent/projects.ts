@@ -1,10 +1,54 @@
 import fs from "fs";
 import { getStoragePath } from "@/lib/storage";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import type { StructuredHandoffSummary } from "./memory";
 
 const PROJECTS_FILE = getStoragePath(".agent-projects.json");
 
 export type ProjectStatus = "ACTIVE" | "COMPLETED" | "PAUSED";
+
+// Asynchronous background sync to Supabase Cloud
+async function syncProjectToSupabase(project: ProjectTask) {
+  if (!isSupabaseConfigured || !supabase) return;
+  try {
+    // 1. Sync project
+    await supabase.from("projects").upsert({
+      id: project.id,
+      user_id: project.userId,
+      title: project.title,
+      objective: project.objective,
+      status: project.status,
+      handoff_summary: project.handoffSummary || null,
+      created_at: project.createdAt,
+      updated_at: project.updatedAt,
+    });
+
+    // 2. Sync messages
+    if (project.messages && project.messages.length > 0) {
+      const msgRows = project.messages.map((m) => ({
+        id: m.id || `msg_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
+        project_id: project.id,
+        user_id: project.userId,
+        role: m.role,
+        content: m.content || m.text || "",
+        created_at: m.createdAt || new Date().toISOString(),
+      }));
+      await supabase.from("messages").upsert(msgRows);
+    }
+  } catch (err) {
+    console.error("Supabase project sync error:", err);
+  }
+}
+
+async function syncDeleteProjectFromSupabase(projectId: string) {
+  if (!isSupabaseConfigured || !supabase) return;
+  try {
+    await supabase.from("messages").delete().eq("project_id", projectId);
+    await supabase.from("projects").delete().eq("id", projectId);
+  } catch (err) {
+    console.error("Supabase project delete sync error:", err);
+  }
+}
 
 export type ProjectMessage = {
   id?: string;
@@ -178,6 +222,7 @@ export function saveOrUpdateProject(
     };
     all[existingIdx] = updated;
     writeProjects(all);
+    syncProjectToSupabase(updated).catch(() => {});
     return { project: updated, status: "OK" };
   } else {
     const firstUserMsg = formattedMessages.find((m) => m.role === "user")?.text || "Dự án mới";
@@ -202,6 +247,7 @@ export function saveOrUpdateProject(
     };
     all.unshift(newProj);
     writeProjects(all);
+    syncProjectToSupabase(newProj).catch(() => {});
     return { project: newProj, status: "OK" };
   }
 }
@@ -223,6 +269,7 @@ export function updateProjectHandoffSummary(
   project.handoffSummary = summary;
   project.updatedAt = new Date().toISOString();
   writeProjects(all);
+  syncProjectToSupabase(project).catch(() => {});
   return { success: true, status: "OK" };
 }
 
@@ -243,5 +290,6 @@ export function deleteProject(
 
   const filtered = all.filter((p) => p.id !== id);
   writeProjects(filtered);
+  syncDeleteProjectFromSupabase(id).catch(() => {});
   return { success: true, status: "OK" };
 }

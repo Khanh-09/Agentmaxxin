@@ -1,11 +1,41 @@
 import fs from "fs";
 import { getStoragePath } from "@/lib/storage";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
 const MEMORY_FILE = getStoragePath(".agent-memory.json");
 
 export type MemoryScope = "user" | "project";
 export type MemoryStatus = "active" | "superseded" | "proposed";
 export type MemoryExtractMethod = "explicit_instruction" | "inferred_proposal" | "manual_ui" | "handoff";
+
+// Asynchronous background sync to Supabase Cloud
+async function syncMemoryToSupabase(item: ScopedMemoryItem) {
+  if (!isSupabaseConfigured || !supabase) return;
+  try {
+    await supabase.from("memories").upsert({
+      id: item.id,
+      user_id: item.userId,
+      project_id: item.projectId || null,
+      scope: item.scope,
+      key: item.key,
+      value: item.value,
+      status: item.status,
+      created_at: item.provenance.createdAt || new Date().toISOString(),
+      updated_at: item.provenance.updatedAt || new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error("Supabase memory sync error:", err);
+  }
+}
+
+async function syncDeleteMemoryFromSupabase(memoryId: string) {
+  if (!isSupabaseConfigured || !supabase) return;
+  try {
+    await supabase.from("memories").delete().eq("id", memoryId);
+  } catch (err) {
+    console.error("Supabase memory delete sync error:", err);
+  }
+}
 
 export interface ScopedMemoryItem {
   id: string;
@@ -262,6 +292,7 @@ export function saveExplicitMemory(params: {
   profile.items.unshift(newItem);
   profile.lastActiveAt = now;
   writeStore(store);
+  syncMemoryToSupabase(newItem).catch(() => {});
 
   return { success: true, memory: newItem, warning };
 }
@@ -300,6 +331,7 @@ export function saveProposedMemory(params: {
     existingProposal.value = sanitized;
     existingProposal.provenance.updatedAt = now;
     writeStore(store);
+    syncMemoryToSupabase(existingProposal).catch(() => {});
     return { success: true, memory: existingProposal };
   }
 
@@ -324,6 +356,7 @@ export function saveProposedMemory(params: {
   profile.items.unshift(newItem);
   profile.lastActiveAt = now;
   writeStore(store);
+  syncMemoryToSupabase(newItem).catch(() => {});
 
   return { success: true, memory: newItem };
 }
@@ -363,12 +396,14 @@ export function approveProposedMemory(
       other.status = "superseded";
       other.provenance.supersededAt = now;
       other.provenance.supersededBy = item.id;
+      syncMemoryToSupabase(other).catch(() => {});
     }
   }
 
   item.status = "active";
   item.provenance.updatedAt = now;
   writeStore(store);
+  syncMemoryToSupabase(item).catch(() => {});
 
   return { success: true, memory: item };
 }
@@ -397,6 +432,7 @@ export function updateMemoryItem(
   item.value = sanitized;
   item.provenance.updatedAt = new Date().toISOString();
   writeStore(store);
+  syncMemoryToSupabase(item).catch(() => {});
 
   return { success: true, memory: item, warning };
 }
@@ -421,6 +457,7 @@ export function deleteMemoryItem(
   }
 
   writeStore(store);
+  syncDeleteMemoryFromSupabase(memoryId).catch(() => {});
   return { success: true };
 }
 
