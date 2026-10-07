@@ -37,6 +37,56 @@ async function syncDeleteMemoryFromSupabase(memoryId: string) {
   }
 }
 
+let lastHydrationTime = 0;
+export async function hydrateGlobalMemoriesFromSupabase(force = false) {
+  if (!isSupabaseConfigured || !supabase) return;
+  const now = Date.now();
+  // Hydrate at most once every 10 seconds unless forced
+  if (!force && now - lastHydrationTime < 10000) return;
+  lastHydrationTime = now;
+
+  try {
+    const { data, error } = await supabase
+      .from("memories")
+      .select("*")
+      .eq("scope", "global")
+      .eq("status", "active")
+      .limit(100);
+
+    if (error || !data) return;
+
+    const store = readStore();
+    const profile = getOrCreateProfile(store, "system_global");
+    let changed = false;
+
+    for (const row of data) {
+      const exists = profile.items.some((it) => it.id === row.id || (it.key === row.key && it.status === "active"));
+      if (!exists) {
+        profile.items.unshift({
+          id: row.id,
+          userId: "system_global",
+          scope: "global",
+          key: row.key,
+          value: row.value,
+          status: "active",
+          provenance: {
+            extractedMethod: "collective_learning",
+            createdAt: row.created_at || new Date().toISOString(),
+            updatedAt: row.updated_at || new Date().toISOString(),
+          },
+        });
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      writeStore(store);
+    }
+  } catch (err) {
+    console.warn("[Memory] Supabase hydration warning:", err);
+  }
+}
+
 export interface ScopedMemoryItem {
   id: string;
   userId: string;
@@ -520,6 +570,7 @@ export function saveGlobalKnowledgeFact(params: {
  * Retrieve all active global collective knowledge items.
  */
 export function listGlobalMemories(): ScopedMemoryItem[] {
+  hydrateGlobalMemoriesFromSupabase().catch(() => {});
   const store = readStore();
   const profile = store.profiles["system_global"];
   if (!profile || !profile.items) return [];

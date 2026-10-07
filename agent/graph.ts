@@ -8,6 +8,7 @@ import { GoogleGenAI, type Content, type Part } from "@google/genai";
 import { tools } from "./tools";
 import { routeRequest, type RouteDecision } from "./router";
 import { assembleCognitiveContext, autoExtractAndSaveConversationMemory, saveGlobalKnowledgeFact, type StructuredHandoffSummary } from "./memory";
+import { distillKnowledgeAndLearn } from "./distill";
 import { evaluateResponse, type EvaluationResult } from "./evaluate";
 import { logExecution } from "./logger";
 import { queryKnowledgeBase, getAgentLearnings } from "./knowledge";
@@ -297,17 +298,29 @@ ${route.systemInstructionAddendum}
   // ─── STAGE 3: EVALUATE NODE (Groundedness & Criteria Scoring) ───
   const evaluation = evaluateResponse(lastUserMsg, finalAnswer, steps, route.domain);
 
-  // ─── STAGE 3.5: ACTIVE LEARNING & IN-CONTEXT ADAPTATION & AUTO-MEMORY ───
+  // ─── STAGE 3.5: ACTIVE LEARNING, COGNITIVE DISTILLATION & AUTO-MEMORY ───
   try {
     autoExtractAndSaveConversationMemory(
       lastUserMsg,
       finalAnswer,
       ctx.userId,
       steps.map((s) => s.tool),
-      route.domain
+      route.domain,
+      ctx.projectId
     );
+
+    // Autonomous Cognitive Distillation (Learns contracts, concepts, and preferences)
+    distillKnowledgeAndLearn({
+      userPrompt: lastUserMsg,
+      agentReply: finalAnswer,
+      toolsUsed: steps.map((s) => s.tool),
+      domain: route.domain,
+      userId: ctx.userId,
+      projectId: ctx.projectId,
+      evaluationScore: evaluation.score,
+    });
   } catch (memErr) {
-    console.warn("[Memory] Auto extraction warning:", memErr);
+    console.warn("[Memory] Auto extraction & distillation warning:", memErr);
   }
 
   if (evaluation.verdict === "PASS" && evaluation.score >= 90 && steps.length > 0) {
