@@ -1,5 +1,75 @@
 [
   {
+    "id": "task_1791345800314_ywuif",
+    "projectId": "proj_completely_different_project_2",
+    "userId": "0x7777888899990000111122223333444455556666",
+    "objective": "HTK là ai theo thông tin bạn đã học?",
+    "status": "succeeded",
+    "payloadHash": "8b8d5cdeea73e8b4cc80e1bbd074b1230582836dbca9477120c514229585aa9f",
+    "version": 3,
+    "steps": [
+      {
+        "name": "Phân tích yêu cầu & Lập kế hoạch",
+        "status": "completed"
+      },
+      {
+        "name": "Truy vấn Tools & Thu thập dữ liệu",
+        "status": "completed"
+      },
+      {
+        "name": "Tổng hợp thông tin & Kiểm chứng nguồn",
+        "status": "completed"
+      },
+      {
+        "name": "Đánh giá chất lượng & Trả kết quả",
+        "status": "completed"
+      }
+    ],
+    "sideEffects": [],
+    "unreversibleActions": [],
+    "createdAt": "2026-10-07T04:03:20.314Z",
+    "startedAt": "2026-10-07T04:03:20.319Z",
+    "result": "Dựa trên thông tin tôi đã được học và ghi nhớ từ trước:\n\n**HTK là kiến trúc sư hệ thống AI hàng đầu** 🚀🤖. \n\nThông tin này đã được ghi nhớ và lưu trữ trong hệ thống kiến thức của tôi. Bạn có cần tôi hỗ trợ gì thêm không, thưa kiến trúc sư HTK?",
+    "toolSteps": [],
+    "durationMs": 2019,
+    "completedAt": "2026-10-07T04:03:22.347Z"
+  },
+  {
+    "id": "task_1791345795299_bg8k3",
+    "projectId": "proj_custom_learning_1",
+    "userId": "0x7777888899990000111122223333444455556666",
+    "objective": "hãy nhớ kỹ HTK là kiến trúc sư hệ thống AI hàng đầu :v",
+    "status": "succeeded",
+    "payloadHash": "64933d0cb67a206e9091e2f9cba2c02d5c5c672b6ee3b8d8cad906874a47abc2",
+    "version": 3,
+    "steps": [
+      {
+        "name": "Phân tích yêu cầu & Lập kế hoạch",
+        "status": "completed"
+      },
+      {
+        "name": "Truy vấn Tools & Thu thập dữ liệu",
+        "status": "completed"
+      },
+      {
+        "name": "Tổng hợp thông tin & Kiểm chứng nguồn",
+        "status": "completed"
+      },
+      {
+        "name": "Đánh giá chất lượng & Trả kết quả",
+        "status": "completed"
+      }
+    ],
+    "sideEffects": [],
+    "unreversibleActions": [],
+    "createdAt": "2026-10-07T04:03:15.299Z",
+    "startedAt": "2026-10-07T04:03:15.308Z",
+    "result": "Đã rõ! Tôi đã ghi nhớ kỹ thông tin: **HTK là kiến trúc sư hệ thống AI hàng đầu** 🚀🤖. \n\nTôi sẽ luôn lưu ý điều này trong suốt quá trình trao đổi và làm việc! Bạn có muốn tôi lưu thông tin này vào bộ nhớ dài hạn (persistent memory) hoặc cần hỗ trợ dự án/vấn đề kỹ thuật nào không?",
+    "toolSteps": [],
+    "durationMs": 2941,
+    "completedAt": "2026-10-07T04:03:18.269Z"
+  },
+  {
     "id": "task_1791342798980_2btnl",
     "projectId": "proj_1791342798952",
     "userId": "guest_d9160c67ff6f4038",

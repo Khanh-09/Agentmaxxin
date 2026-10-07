@@ -1,5 +1,170 @@
 [
   {
+    "id": "proj_beta_1791345814430",
+    "userId": "guest_2e4367b9d0c84777",
+    "title": "Project Beta - NFT Faucet",
+    "objective": "Distribute NFT badges to testnet users",
+    "status": "ACTIVE",
+    "domain": "general",
+    "messages": [
+      {
+        "id": "msg_1791345818079_0_1ke",
+        "role": "user",
+        "text": "Tạo NFT faucet",
+        "content": "Tạo NFT faucet",
+        "createdAt": "2026-10-07T04:03:38.079Z"
+      }
+    ],
+    "currentTaskStatus": "queued",
+    "createdAt": "2026-10-07T04:03:38.079Z",
+    "updatedAt": "2026-10-07T04:03:38.079Z"
+  },
+  {
+    "id": "proj_alpha_1791345814430",
+    "userId": "guest_2e4367b9d0c84777",
+    "title": "Project Alpha - DeFi Arbitrage",
+    "objective": "Build arbitrage bot on Base Sepolia",
+    "status": "ACTIVE",
+    "domain": "general",
+    "messages": [
+      {
+        "id": "msg_1791345814442_0_zm7",
+        "role": "user",
+        "text": "Nhớ rằng gas_limit_max = 500000 cho dự án Alpha",
+        "content": "Nhớ rằng gas_limit_max = 500000 cho dự án Alpha",
+        "createdAt": "2026-10-07T04:03:34.442Z"
+      }
+    ],
+    "currentTaskStatus": "queued",
+    "createdAt": "2026-10-07T04:03:34.442Z",
+    "updatedAt": "2026-10-07T04:03:38.065Z",
+    "handoffSummary": {
+      "objective": "Build arbitrage bot on Base Sepolia",
+      "decisions": [
+        "Use Base Sepolia testnet",
+        "Max gas limit 500,000"
+      ],
+      "completedWork": [
+        "Configured provider",
+        "Set up wallet"
+      ],
+      "pendingWork": [
+        "Write smart contract adapter",
+        "Deploy proposal worker"
+      ],
+      "relevantTasks": [
+        "task_init_1"
+      ],
+      "lastUpdated": "2026-10-07T04:03:38.064Z"
+    }
+  },
+  {
+    "id": "proj_completely_different_project_2",
+    "userId": "0x7777888899990000111122223333444455556666",
+    "title": "HTK là ai theo thông tin bạn đã học?",
+    "objective": "HTK là ai theo thông tin bạn đã học?",
+    "status": "ACTIVE",
+    "domain": "general",
+    "messages": [
+      {
+        "id": "msg_1791345802358_0_d0b",
+        "role": "user",
+        "text": "HTK là ai theo thông tin bạn đã học?",
+        "content": "HTK là ai theo thông tin bạn đã học?",
+        "createdAt": "2026-10-07T04:03:22.358Z"
+      },
+      {
+        "id": "msg_1791345802358_1_yfd",
+        "role": "agent",
+        "text": "Dựa trên thông tin tôi đã được học và ghi nhớ từ trước:\n\n**HTK là kiến trúc sư hệ thống AI hàng đầu** 🚀🤖. \n\nThông tin này đã được ghi nhớ và lưu trữ trong hệ thống kiến thức của tôi. Bạn có cần tôi hỗ trợ gì thêm không, thưa kiến trúc sư HTK?",
+        "content": "Dựa trên thông tin tôi đã được học và ghi nhớ từ trước:\n\n**HTK là kiến trúc sư hệ thống AI hàng đầu** 🚀🤖. \n\nThông tin này đã được ghi nhớ và lưu trữ trong hệ thống kiến thức của tôi. Bạn có cần tôi hỗ trợ gì thêm không, thưa kiến trúc sư HTK?",
+        "createdAt": "2026-10-07T04:03:22.358Z",
+        "taskId": "task_1791345800314_ywuif",
+        "memoriesUsed": [
+          "global:htk",
+          "global:insight_địa_chỉ_contract_của_token_aero_trê",
+          "global:insight_smart_contract_của_token_aero_trên_",
+          "global:agentmaxx_pro_sử_dụng_mô_hình_",
+          "user:htk"
+        ],
+        "steps": [],
+        "domain": "general"
+      }
+    ],
+    "currentTaskId": "task_1791345800314_ywuif",
+    "currentTaskStatus": "succeeded",
+    "createdAt": "2026-10-07T04:03:22.358Z",
+    "updatedAt": "2026-10-07T04:03:22.358Z"
+  },
+  {
+    "id": "proj_custom_learning_1",
+    "userId": "0x7777888899990000111122223333444455556666",
+    "title": "hãy nhớ kỹ HTK là kiến trúc sư hệ thống AI hà...",
+    "objective": "hãy nhớ kỹ HTK là kiến trúc sư hệ thống AI hàng đầu :v",
+    "status": "ACTIVE",
+    "domain": "general",
+    "messages": [
+      {
+        "id": "msg_1791345798280_0_el6",
+        "role": "user",
+        "text": "hãy nhớ kỹ HTK là kiến trúc sư hệ thống AI hàng đầu :v",
+        "content": "hãy nhớ kỹ HTK là kiến trúc sư hệ thống AI hàng đầu :v",
+        "createdAt": "2026-10-07T04:03:18.28+00:00"
+      },
+      {
+        "id": "msg_1791345798280_1_v89",
+        "role": "agent",
+        "text": "Đã rõ! Tôi đã ghi nhớ kỹ thông tin: **HTK là kiến trúc sư hệ thống AI hàng đầu** 🚀🤖. \n\nTôi sẽ luôn lưu ý điều này trong suốt quá trình trao đổi và làm việc! Bạn có muốn tôi lưu thông tin này vào bộ nhớ dài hạn (persistent memory) hoặc cần hỗ trợ dự án/vấn đề kỹ thuật nào không?",
+        "content": "Đã rõ! Tôi đã ghi nhớ kỹ thông tin: **HTK là kiến trúc sư hệ thống AI hàng đầu** 🚀🤖. \n\nTôi sẽ luôn lưu ý điều này trong suốt quá trình trao đổi và làm việc! Bạn có muốn tôi lưu thông tin này vào bộ nhớ dài hạn (persistent memory) hoặc cần hỗ trợ dự án/vấn đề kỹ thuật nào không?",
+        "createdAt": "2026-10-07T04:03:18.28+00:00"
+      }
+    ],
+    "currentTaskId": "task_1791345795299_bg8k3",
+    "currentTaskStatus": "succeeded",
+    "createdAt": "2026-10-07T04:03:18.280Z",
+    "updatedAt": "2026-10-07T04:03:18.28+00:00"
+  },
+  {
+    "id": "proj_wallet_0x7777888899990000111122223333444455556666",
+    "userId": "0x7777888899990000111122223333444455556666",
+    "title": "Không gian làm việc chính của ví",
+    "objective": "Lịch sử hội thoại và tác vụ chính của tài khoản ví",
+    "status": "ACTIVE",
+    "domain": "web3",
+    "messages": [
+      {
+        "id": "msg_1791345748529_0_hpl",
+        "role": "user",
+        "text": "Xin chào, đây là đoạn chat cũ của ví tôi",
+        "content": "Xin chào, đây là đoạn chat cũ của ví tôi",
+        "createdAt": "2026-10-07T04:02:28.529+00:00"
+      },
+      {
+        "id": "msg_1791345748529_1_qfj",
+        "role": "agent",
+        "text": "Xin chào! Lịch sử của bạn sẽ luôn được bảo toàn.",
+        "content": "Xin chào! Lịch sử của bạn sẽ luôn được bảo toàn.",
+        "createdAt": "2026-10-07T04:02:28.529+00:00"
+      },
+      {
+        "id": "msg_1791345795240_0_i48",
+        "role": "user",
+        "text": "Xin chào, đây là đoạn chat cũ của ví tôi",
+        "content": "Xin chào, đây là đoạn chat cũ của ví tôi",
+        "createdAt": "2026-10-07T04:03:15.24+00:00"
+      },
+      {
+        "id": "msg_1791345795240_1_fxm",
+        "role": "agent",
+        "text": "Xin chào! Lịch sử của bạn sẽ luôn được bảo toàn.",
+        "content": "Xin chào! Lịch sử của bạn sẽ luôn được bảo toàn.",
+        "createdAt": "2026-10-07T04:03:15.24+00:00"
+      }
+    ],
+    "createdAt": "2026-10-07T04:02:28.497Z",
+    "updatedAt": "2026-10-07T04:03:15.24+00:00"
+  },
+  {
     "id": "proj_beta_1791343357901",
     "userId": "guest_176af35fc5854c73",
     "title": "Project Beta - NFT Faucet",

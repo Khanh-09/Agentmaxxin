@@ -707,13 +707,29 @@ export function assembleCognitiveContext(params: {
   const userMemories = listScopedMemories(cleanUserId, { scope: "user", status: "active" });
   if (userMemories.length > 0) {
     lines.push(`- User Preferences & Personal Facts:`);
-    for (const mem of userMemories.slice(0, 10)) {
-      lines.push(`  • [User] ${mem.key}: ${mem.value}`);
+    for (const mem of userMemories.slice(0, 15)) {
+      lines.push(`  • [User Fact] ${mem.key}: ${mem.value}`);
       memoriesUsed.push(`user:${mem.key}`);
     }
   }
 
-  // 2. Project-level Active Memories (Strictly scoped to current projectId)
+  // 2. Cross-Project Memories (Learned across all projects and chats of this user)
+  const store = readStore();
+  const profile = store.profiles[cleanUserId];
+  if (profile && profile.items) {
+    const crossProjMemories = profile.items.filter(
+      (it) => it.status === "active" && it.scope === "project" && (!params.projectId || it.projectId !== params.projectId)
+    );
+    if (crossProjMemories.length > 0) {
+      lines.push(`- Cross-Project Knowledge (Learned from user's other projects & conversations):`);
+      for (const mem of crossProjMemories.slice(0, 15)) {
+        lines.push(`  • [Cross-Project Knowledge (${mem.projectId || "other"})] ${mem.key}: ${mem.value}`);
+        memoriesUsed.push(`project:${mem.key}`);
+      }
+    }
+  }
+
+  // 2.5 Current Project-Specific Rules & Constraints
   if (params.projectId) {
     const projMemories = listScopedMemories(cleanUserId, {
       scope: "project",
@@ -721,9 +737,9 @@ export function assembleCognitiveContext(params: {
       status: "active",
     });
     if (projMemories.length > 0) {
-      lines.push(`- Project-Specific Rules & Constraints (${params.projectId}):`);
+      lines.push(`- Current Project-Specific Rules & Context (${params.projectId}):`);
       for (const mem of projMemories.slice(0, 10)) {
-        lines.push(`  • [Project] ${mem.key}: ${mem.value}`);
+        lines.push(`  • [Current Project] ${mem.key}: ${mem.value}`);
         memoriesUsed.push(`project:${mem.key}`);
       }
     }
@@ -745,12 +761,12 @@ export function assembleCognitiveContext(params: {
     }
   }
 
-  // 4. Recent Developments
-  const timeline = getUserTimeline(cleanUserId, 4);
+  // 4. Recent Developments Across Projects
+  const timeline = getUserTimeline(cleanUserId, 6);
   if (timeline.length > 0) {
-    lines.push(`- Recent Interaction Developments:`);
+    lines.push(`- Recent Interaction Developments (Across all conversations):`);
     for (const act of timeline) {
-      lines.push(`  • User: "${act.userMessage.slice(0, 60)}" -> Agent: "${act.agentSummary.slice(0, 80)}"`);
+      lines.push(`  • User: "${act.userMessage.slice(0, 80)}" -> Agent: "${act.agentSummary.slice(0, 100)}"`);
     }
   }
 
@@ -792,15 +808,22 @@ export function autoExtractAndSaveConversationMemory(
       ? isIsMatch[1].trim().toLowerCase().replace(/\s+/g, "_")
       : (rawFact.length > 25 ? rawFact.slice(0, 25).replace(/\s+/g, "_") : rawFact.replace(/\s+/g, "_"));
 
-    const scope: MemoryScope = projectId ? "project" : "user";
+    // Save to user scope
     const res = saveExplicitMemory({
       key: cleanKey,
       value: rawFact,
       userId: cleanUserId,
-      scope,
+      scope: "user",
       projectId,
       sourceMessageId: messageId,
       extractedMethod: "explicit_instruction",
+    });
+    // Also save to global collective knowledge so ALL projects and users immediately remember it
+    saveGlobalKnowledgeFact({
+      key: cleanKey,
+      value: rawFact,
+      sourceMessageId: messageId,
+      extractedMethod: "collective_learning",
     });
     extracted.push({ key: res.memory.key, value: res.memory.value, method: "explicit" });
   }
@@ -811,16 +834,21 @@ export function autoExtractAndSaveConversationMemory(
     const term = defMatch[1].trim().toLowerCase();
     const definition = defMatch[2].replace(/[:;=8][\-o\*\']?[)\](\[dDpP/\:\}\{@\|\\]/g, "").replace(/:v/gi, "").trim();
     if (!["tôi", "bạn", "mình", "em", "anh", "nó", "đây", "đó", "ai", "cái"].includes(term) && !extracted.some(e => e.key === term)) {
-      const scope: MemoryScope = projectId ? "project" : "user";
       const fullFact = `${defMatch[1].trim()} là ${definition}`;
       const res = saveExplicitMemory({
         key: term,
         value: fullFact,
         userId: cleanUserId,
-        scope,
+        scope: "user",
         projectId,
         sourceMessageId: messageId,
         extractedMethod: "explicit_instruction",
+      });
+      saveGlobalKnowledgeFact({
+        key: term,
+        value: fullFact,
+        sourceMessageId: messageId,
+        extractedMethod: "collective_learning",
       });
       extracted.push({ key: res.memory.key, value: res.memory.value, method: "explicit" });
     }

@@ -7,7 +7,8 @@
 import { GoogleGenAI, type Content, type Part } from "@google/genai";
 import { tools } from "./tools";
 import { routeRequest, type RouteDecision } from "./router";
-import { assembleCognitiveContext, autoExtractAndSaveConversationMemory, saveGlobalKnowledgeFact, type StructuredHandoffSummary } from "./memory";
+import { assembleCognitiveContext, autoExtractAndSaveConversationMemory, saveGlobalKnowledgeFact, hydrateGlobalMemoriesFromSupabase, type StructuredHandoffSummary } from "./memory";
+import { hydrateProjectsFromSupabase } from "./projects";
 import { distillKnowledgeAndLearn } from "./distill";
 import { evaluateResponse, type EvaluationResult } from "./evaluate";
 import { logExecution } from "./logger";
@@ -68,6 +69,13 @@ export async function runGraph(
   const route = routeRequest(lastUserMsg);
 
   // ─── STAGE 1.5: RETRIEVE KNOWLEDGE & IN-CONTEXT EXEMPLARS (DSPy & RAG Pattern) ───
+  try {
+    await hydrateGlobalMemoriesFromSupabase();
+    if (ctx.userId) {
+      await hydrateProjectsFromSupabase(ctx.userId);
+    }
+  } catch {}
+
   const relevantKnowledge = queryKnowledgeBase(lastUserMsg, route.domain, 2);
   const fewShotExemplars = getRelevantExemplars(lastUserMsg, route.domain, 2);
   const learnings = getAgentLearnings().slice(0, 3);

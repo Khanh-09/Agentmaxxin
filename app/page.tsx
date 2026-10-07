@@ -458,29 +458,26 @@ export default function Home() {
       .then((d) => {
         if (d.projects) {
           setProjects(d.projects);
-          // Automatically restore active project messages into chat on reload if chat is currently empty
           if (d.projects.length > 0) {
-            setMessages((prevMsgs) => {
-              if (prevMsgs.length === 0) {
-                const activeProj = d.projects.find((p: any) => p.status === "ACTIVE") || d.projects[0];
-                if (activeProj && activeProj.messages && activeProj.messages.length > 0) {
-                  setCurrentProjectId(activeProj.id);
-                  setCurrentProjectStatus(activeProj.status || "ACTIVE");
-                  if (activeProj.currentTaskId) {
-                    setCurrentTask({
-                      id: activeProj.currentTaskId,
-                      projectId: activeProj.id,
-                      userId: activeProj.userId,
-                      objective: activeProj.objective,
-                      status: activeProj.currentTaskStatus || "succeeded",
-                      createdAt: activeProj.createdAt,
-                    });
-                  }
-                  return activeProj.messages;
-                }
+            const activeProj = d.projects.find((p: any) => p.status === "ACTIVE") || d.projects[0];
+            if (activeProj) {
+              setCurrentProjectId(activeProj.id);
+              setCurrentProjectTitle(activeProj.title || "Tác vụ");
+              setCurrentProjectStatus(activeProj.status || "ACTIVE");
+              if (activeProj.messages && activeProj.messages.length > 0) {
+                setMessages(activeProj.messages);
               }
-              return prevMsgs;
-            });
+              if (activeProj.currentTaskId) {
+                setCurrentTask({
+                  id: activeProj.currentTaskId,
+                  projectId: activeProj.id,
+                  userId: activeProj.userId,
+                  objective: activeProj.objective,
+                  status: activeProj.currentTaskStatus || "succeeded",
+                  createdAt: activeProj.createdAt,
+                });
+              }
+            }
           }
         }
         if (typeof d.total === "number") setTotalProjects(d.total);
@@ -688,8 +685,6 @@ export default function Home() {
             setSessionToken(authData.token);
             setSessionUser(authData.userId);
             setUserAccount(acc);
-            setMessages([]);
-            setCurrentProjectId(null);
             loadProjects(authData.token);
             loadMemories(authData.token);
             loadProposals(authData.token);
@@ -911,7 +906,7 @@ export default function Home() {
     setInput("");
     setThinking(true);
 
-    const effectiveProjId = currentProjectId || `proj_${Date.now()}`;
+    const effectiveProjId = currentProjectId || (userAccount ? `proj_wallet_${userAccount.toLowerCase()}` : `proj_${Date.now()}`);
     let tok = sessionToken;
     if (!tok) {
       tok = (await initSession()) || "";

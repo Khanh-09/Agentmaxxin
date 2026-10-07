@@ -38,7 +38,8 @@ export async function POST(req: Request) {
   }
 
   const latestUserMsg = [...messages].reverse().find((m: any) => m.role === "user")?.text || "Tác vụ nghiên cứu";
-  const effectiveProjId = projectId || `proj_${Date.now()}`;
+  const defaultProjId = session?.isWallet ? `proj_wallet_${userId.toLowerCase()}` : `proj_${Date.now()}`;
+  const effectiveProjId = projectId || defaultProjId;
 
   // Task creation & Deduplication
   const taskResult = createOrGetTask({

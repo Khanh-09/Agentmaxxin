@@ -49,7 +49,8 @@ export async function POST(req: Request) {
 
     const effectiveMessages = messages || [{ role: "user", text: objective }];
     const effectiveObjective = objective || effectiveMessages[effectiveMessages.length - 1].text;
-    const effectiveProjId = projectId || `proj_${Date.now()}`;
+    const defaultProjId = session?.isWallet ? `proj_wallet_${session.userId}` : `proj_${Date.now()}`;
+    const effectiveProjId = projectId || defaultProjId;
 
     // Atomic creation with idempotency and payload conflict detection
     const result = createOrGetTask({

@@ -102,6 +102,74 @@ function writeProjects(projects: ProjectTask[]) {
   }
 }
 
+let lastProjectHydration = 0;
+
+export async function hydrateProjectsFromSupabase(userId: string, force = false) {
+  if (!isSupabaseConfigured || !supabase || !userId) return;
+  const now = Date.now();
+  if (!force && now - lastProjectHydration < 5000) return;
+  lastProjectHydration = now;
+
+  try {
+    const cleanUser = userId.toLowerCase().trim();
+    const { data: dbProjects, error: pErr } = await supabase
+      .from("projects")
+      .select("*")
+      .eq("user_id", cleanUser);
+
+    if (pErr || !dbProjects) return;
+
+    const all = readProjects();
+    let changed = false;
+
+    for (const dbP of dbProjects) {
+      const { data: dbMsgs } = await supabase
+        .from("messages")
+        .select("*")
+        .eq("project_id", dbP.id)
+        .order("created_at", { ascending: true });
+
+      const formattedMsgs: ProjectMessage[] = (dbMsgs || []).map((m: any) => ({
+        id: m.id,
+        role: m.role,
+        text: m.content || "",
+        content: m.content || "",
+        createdAt: m.created_at,
+      }));
+
+      const existingIdx = all.findIndex((p) => p.id === dbP.id);
+      if (existingIdx >= 0) {
+        if (formattedMsgs.length >= all[existingIdx].messages.length) {
+          all[existingIdx].messages = formattedMsgs;
+          all[existingIdx].title = dbP.title || all[existingIdx].title;
+          all[existingIdx].status = dbP.status || all[existingIdx].status;
+          all[existingIdx].updatedAt = dbP.updated_at || all[existingIdx].updatedAt;
+          changed = true;
+        }
+      } else {
+        all.unshift({
+          id: dbP.id,
+          userId: cleanUser,
+          title: dbP.title || "Không gian làm việc chính của ví",
+          objective: dbP.objective || dbP.title || "Hội thoại",
+          status: dbP.status || "ACTIVE",
+          domain: "general",
+          messages: formattedMsgs,
+          createdAt: dbP.created_at || new Date().toISOString(),
+          updatedAt: dbP.updated_at || new Date().toISOString(),
+        });
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      writeProjects(all);
+    }
+  } catch (err) {
+    console.warn("[Projects] Supabase hydration warning:", err);
+  }
+}
+
 export function listProjects(
   userId: string,
   filter?: {
@@ -112,8 +180,32 @@ export function listProjects(
     limit?: number;
   }
 ): { projects: ProjectTask[]; total: number; page: number; totalPages: number } {
-  const all = readProjects();
   const cleanUser = userId.toLowerCase().trim();
+  hydrateProjectsFromSupabase(cleanUser).catch(() => {});
+
+  let all = readProjects();
+
+  // If user is a wallet address and has no project yet, auto-create their primary wallet workspace
+  if (cleanUser.startsWith("0x") && cleanUser.length >= 20) {
+    const hasProj = all.some((p) => p.userId && p.userId.toLowerCase().trim() === cleanUser);
+    if (!hasProj) {
+      const defaultProjId = `proj_wallet_${cleanUser}`;
+      const defaultProj: ProjectTask = {
+        id: defaultProjId,
+        userId: cleanUser,
+        title: "Không gian làm việc chính của ví",
+        objective: "Lịch sử hội thoại và tác vụ chính của tài khoản ví",
+        status: "ACTIVE",
+        domain: "web3",
+        messages: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      all.unshift(defaultProj);
+      writeProjects(all);
+      syncProjectToSupabase(defaultProj).catch(() => {});
+    }
+  }
 
   let userProjects = all
     .filter((p) => p.userId && p.userId.toLowerCase().trim() === cleanUser)
