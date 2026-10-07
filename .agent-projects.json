@@ -1,5 +1,37 @@
 [
   {
+    "id": "proj_live_demo_1",
+    "userId": "guest_c3507791afe74a42",
+    "title": "Nhớ rằng tôi thích mạng Base Sepolia và token...",
+    "objective": "Nhớ rằng tôi thích mạng Base Sepolia và token USDC nhé",
+    "status": "ACTIVE",
+    "domain": "web3",
+    "messages": [
+      {
+        "id": "msg_1791340712979_0_0z5",
+        "role": "user",
+        "text": "Nhớ rằng tôi thích mạng Base Sepolia và token USDC nhé",
+        "content": "Nhớ rằng tôi thích mạng Base Sepolia và token USDC nhé",
+        "createdAt": "2026-10-07T02:38:32.979Z"
+      },
+      {
+        "id": "msg_1791340712979_1_km5",
+        "role": "agent",
+        "text": "Tôi đã ghi nhớ sở thích của bạn:\n- **Mạng yêu thích:** Base Sepolia\n- **Token yêu thích:** USDC\n\nTôi đã lưu lại thông tin này để hỗ trợ bạn tốt hơn trong các phiên làm việc sắp tới. Bạn có muốn kiểm tra số dư USDC trên Base Sepolia hoặc thực hiện thao tác nào khác không?",
+        "content": "Tôi đã ghi nhớ sở thích của bạn:\n- **Mạng yêu thích:** Base Sepolia\n- **Token yêu thích:** USDC\n\nTôi đã lưu lại thông tin này để hỗ trợ bạn tốt hơn trong các phiên làm việc sắp tới. Bạn có muốn kiểm tra số dư USDC trên Base Sepolia hoặc thực hiện thao tác nào khác không?",
+        "createdAt": "2026-10-07T02:38:32.979Z",
+        "taskId": "task_1791340710746_7qozc",
+        "memoriesUsed": [],
+        "steps": [],
+        "domain": "web3"
+      }
+    ],
+    "currentTaskId": "task_1791340710746_7qozc",
+    "currentTaskStatus": "succeeded",
+    "createdAt": "2026-10-07T02:38:32.979Z",
+    "updatedAt": "2026-10-07T02:38:32.979Z"
+  },
+  {
     "id": "proj_beta_1791340277446",
     "userId": "guest_a5431eaed7a74110",
     "title": "Project Beta - NFT Faucet",

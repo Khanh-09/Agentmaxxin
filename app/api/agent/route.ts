@@ -2,6 +2,7 @@ import { getAuthenticatedSession } from "@/agent/auth";
 import { MODEL, runGraph } from "@/agent/graph";
 import { createOrGetTask, updateTask } from "@/agent/tasks";
 import { tools } from "@/agent/tools";
+import { saveOrUpdateProject } from "@/agent/projects";
 
 // GET /api/agent -> setup status + the list of tools (shown on the page)
 export async function GET(req: Request) {
@@ -105,6 +106,33 @@ export async function POST(req: Request) {
       },
       userId
     );
+
+    // Auto-save project & messages to storage and Supabase Cloud
+    try {
+      saveOrUpdateProject(
+        {
+          id: effectiveProjId,
+          domain: result.domain,
+          messages: [
+            ...messages,
+            {
+              role: "agent",
+              text: result.answer,
+              content: result.answer,
+              domain: result.domain,
+              memoriesUsed: result.memoriesUsed,
+              steps: result.steps,
+              taskId: task.id,
+            },
+          ],
+          currentTaskId: task.id,
+          currentTaskStatus: "succeeded",
+        },
+        userId
+      );
+    } catch (saveErr) {
+      console.warn("Auto-save project warning:", saveErr);
+    }
 
     return Response.json({
       ...result,

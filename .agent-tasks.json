@@ -1,5 +1,40 @@
 [
   {
+    "id": "task_1791340710746_7qozc",
+    "projectId": "proj_live_demo_1",
+    "userId": "guest_c3507791afe74a42",
+    "objective": "Nhớ rằng tôi thích mạng Base Sepolia và token USDC nhé",
+    "status": "succeeded",
+    "payloadHash": "3823411fdafc8fac6fefdcf1c769c6bb7548e745153bd730556ffd7be60a4948",
+    "version": 3,
+    "steps": [
+      {
+        "name": "Phân tích yêu cầu & Lập kế hoạch",
+        "status": "completed"
+      },
+      {
+        "name": "Truy vấn Tools & Thu thập dữ liệu",
+        "status": "completed"
+      },
+      {
+        "name": "Tổng hợp thông tin & Kiểm chứng nguồn",
+        "status": "completed"
+      },
+      {
+        "name": "Đánh giá chất lượng & Trả kết quả",
+        "status": "completed"
+      }
+    ],
+    "sideEffects": [],
+    "unreversibleActions": [],
+    "createdAt": "2026-10-07T02:38:30.746Z",
+    "startedAt": "2026-10-07T02:38:30.755Z",
+    "result": "Tôi đã ghi nhớ sở thích của bạn:\n- **Mạng yêu thích:** Base Sepolia\n- **Token yêu thích:** USDC\n\nTôi đã lưu lại thông tin này để hỗ trợ bạn tốt hơn trong các phiên làm việc sắp tới. Bạn có muốn kiểm tra số dư USDC trên Base Sepolia hoặc thực hiện thao tác nào khác không?",
+    "toolSteps": [],
+    "durationMs": 2160,
+    "completedAt": "2026-10-07T02:38:32.925Z"
+  },
+  {
     "id": "task_1791281591827_3w8z0",
     "projectId": "proj_1791276790302",
     "userId": "guest_1f098897477b4a8c",
