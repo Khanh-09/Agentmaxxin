@@ -1,5 +1,77 @@
 [
   {
+    "id": "proj_1791342798952",
+    "userId": "guest_d9160c67ff6f4038",
+    "title": "Vậy tôi chỉ bạn nhé, hãy nhớ kỹ htk là một ng...",
+    "objective": "Vậy tôi chỉ bạn nhé, hãy nhớ kỹ htk là một người con gái xinh đẹp :v",
+    "status": "ACTIVE",
+    "domain": "general",
+    "messages": [
+      {
+        "id": "msg_1791342801036_0_hs8",
+        "role": "user",
+        "text": "Vậy tôi chỉ bạn nhé, hãy nhớ kỹ htk là một người con gái xinh đẹp :v",
+        "content": "Vậy tôi chỉ bạn nhé, hãy nhớ kỹ htk là một người con gái xinh đẹp :v",
+        "createdAt": "2026-10-07T03:13:21.036Z"
+      },
+      {
+        "id": "msg_1791342801036_1_ll6",
+        "role": "agent",
+        "text": "Tuyệt vời! Tôi đã ghi nhớ kỹ thông tin này vào bộ nhớ: **htk là một người con gái xinh đẹp** :v 🌸\n\nTôi đã lưu lại đặc điểm thú vị này rồi. Bạn có muốn tôi giúp tra cứu thông tin, kiểm tra giá crypto, xem thời tiết hay thực hiện công việc gì khác không nào?",
+        "content": "Tuyệt vời! Tôi đã ghi nhớ kỹ thông tin này vào bộ nhớ: **htk là một người con gái xinh đẹp** :v 🌸\n\nTôi đã lưu lại đặc điểm thú vị này rồi. Bạn có muốn tôi giúp tra cứu thông tin, kiểm tra giá crypto, xem thời tiết hay thực hiện công việc gì khác không nào?",
+        "createdAt": "2026-10-07T03:13:21.036Z",
+        "taskId": "task_1791342798980_2btnl",
+        "memoriesUsed": [
+          "global:insight_địa_chỉ_contract_của_token_aero_trê",
+          "global:insight_smart_contract_của_token_aero_trên_",
+          "global:agentmaxx_pro_sử_dụng_mô_hình_"
+        ],
+        "steps": [],
+        "domain": "general"
+      }
+    ],
+    "currentTaskId": "task_1791342798980_2btnl",
+    "currentTaskStatus": "succeeded",
+    "createdAt": "2026-10-07T03:13:21.036Z",
+    "updatedAt": "2026-10-07T03:13:21.036Z"
+  },
+  {
+    "id": "proj_1791342766233",
+    "userId": "guest_feb7f55117294fe6",
+    "title": "Vậy tôi chỉ bạn nhé, hãy nhớ kỹ htk là một ng...",
+    "objective": "Vậy tôi chỉ bạn nhé, hãy nhớ kỹ htk là một người con gái xinh đẹp :v",
+    "status": "ACTIVE",
+    "domain": "general",
+    "messages": [
+      {
+        "id": "msg_1791342768351_0_f9d",
+        "role": "user",
+        "text": "Vậy tôi chỉ bạn nhé, hãy nhớ kỹ htk là một người con gái xinh đẹp :v",
+        "content": "Vậy tôi chỉ bạn nhé, hãy nhớ kỹ htk là một người con gái xinh đẹp :v",
+        "createdAt": "2026-10-07T03:12:48.351Z"
+      },
+      {
+        "id": "msg_1791342768351_1_74m",
+        "role": "agent",
+        "text": "Tuyệt vời! Tôi đã ghi nhớ kỹ thông tin này vào bộ nhớ rồi nhé: **\"htk là một người con gái xinh đẹp\"** :v ✨\n\nTôi đã lưu lại thông tin này để tiện đồng hành cùng bạn trong các trò chuyện tiếp theo. Bạn có cần tôi hỗ trợ tra cứu thông tin, tính toán, kiểm tra giá crypto hay xử lý công việc gì khác không nào?",
+        "content": "Tuyệt vời! Tôi đã ghi nhớ kỹ thông tin này vào bộ nhớ rồi nhé: **\"htk là một người con gái xinh đẹp\"** :v ✨\n\nTôi đã lưu lại thông tin này để tiện đồng hành cùng bạn trong các trò chuyện tiếp theo. Bạn có cần tôi hỗ trợ tra cứu thông tin, tính toán, kiểm tra giá crypto hay xử lý công việc gì khác không nào?",
+        "createdAt": "2026-10-07T03:12:48.351Z",
+        "taskId": "task_1791342766267_wruij",
+        "memoriesUsed": [
+          "global:insight_địa_chỉ_contract_của_token_aero_trê",
+          "global:insight_smart_contract_của_token_aero_trên_",
+          "global:agentmaxx_pro_sử_dụng_mô_hình_"
+        ],
+        "steps": [],
+        "domain": "general"
+      }
+    ],
+    "currentTaskId": "task_1791342766267_wruij",
+    "currentTaskStatus": "succeeded",
+    "createdAt": "2026-10-07T03:12:48.351Z",
+    "updatedAt": "2026-10-07T03:12:48.351Z"
+  },
+  {
     "id": "proj_beta_1791342230433",
     "userId": "guest_b9f28cf7e05e4015",
     "title": "Project Beta - NFT Faucet",

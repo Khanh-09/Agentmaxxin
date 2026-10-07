@@ -774,12 +774,24 @@ export function autoExtractAndSaveConversationMemory(
   const text = userMsg.trim();
   const lower = text.toLowerCase();
 
-  // 1. Explicit Memory Triggers: "Nhớ rằng...", "Hãy nhớ là...", "Remember that...", "Lưu ý rằng..."
-  const explicitMatch = text.match(/(?:nhớ rằng|hãy nhớ là|hãy nhớ rằng|nhớ là|remember that|please remember that|lưu ý rằng)\s*[:,\-]?\s*([^.!?\n]{4,150})/i);
+  // 1. Explicit Memory Triggers: "Nhớ rằng...", "Hãy nhớ kỹ...", "Ghi nhớ...", "Remember that...", "Lưu ý..."
+  const explicitMatch = text.match(
+    /(?:nhớ rằng|hãy nhớ kỹ|hãy nhớ là|hãy nhớ rằng|hãy nhớ|nhớ kỹ là|nhớ kỹ|nhớ là|nhớ nè|nhớ nhé|nhớ nghen|ghi nhớ rằng|ghi nhớ là|ghi nhớ|lưu lại là|lưu lại|nhớ giúp tôi|nhớ giúp mình|cứ nhớ là|cứ nhớ|remember that|please remember that|remember|lưu ý rằng|lưu ý là|chỉ bạn nhé|dạy bạn nhé)\s*[:,\-]?\s*([^.!?\n]{4,150})/i
+  );
   if (explicitMatch && explicitMatch[1]) {
-    const rawFact = explicitMatch[1].trim();
-    // Derive a clean key
-    const cleanKey = rawFact.length > 25 ? rawFact.slice(0, 25).replace(/\s+/g, "_") : rawFact.replace(/\s+/g, "_");
+    let rawFact = explicitMatch[1].trim();
+    // Clean trailing emoticons like :v, :), ^^
+    rawFact = rawFact.replace(/[:;=8][\-o\*\']?[)\](\[dDpP/\:\}\{@\|\\]/g, "").replace(/:v/gi, "").trim();
+    
+    // Strip redundant leading trigger keywords from the fact
+    rawFact = rawFact.replace(/^(?:nhớ rằng|hãy nhớ kỹ|hãy nhớ là|hãy nhớ rằng|hãy nhớ|nhớ kỹ là|nhớ kỹ|nhớ là|nhớ nè|nhớ nhé|nhớ nghen|ghi nhớ rằng|ghi nhớ là|ghi nhớ|lưu lại là|lưu lại|nhớ giúp tôi|nhớ giúp mình|cứ nhớ là|cứ nhớ|remember that|please remember that|remember|lưu ý rằng|lưu ý là|chỉ bạn nhé|dạy bạn nhé)\s*[:,\-]?\s*/i, "").trim();
+
+    // Check if it's "X là Y" to make a clean concise key
+    const isIsMatch = rawFact.match(/^([a-zA-Z0-9_\u00C0-\u1EF9\s]{2,25})\s+là\s+/i);
+    const cleanKey = isIsMatch && isIsMatch[1]
+      ? isIsMatch[1].trim().toLowerCase().replace(/\s+/g, "_")
+      : (rawFact.length > 25 ? rawFact.slice(0, 25).replace(/\s+/g, "_") : rawFact.replace(/\s+/g, "_"));
+
     const scope: MemoryScope = projectId ? "project" : "user";
     const res = saveExplicitMemory({
       key: cleanKey,
@@ -791,6 +803,27 @@ export function autoExtractAndSaveConversationMemory(
       extractedMethod: "explicit_instruction",
     });
     extracted.push({ key: res.memory.key, value: res.memory.value, method: "explicit" });
+  }
+
+  // 1.5 Natural Entity Definition Trigger: "X là một Y" / "X là Y" (e.g. "htk là một người con gái xinh đẹp")
+  const defMatch = text.match(/(?:^|[.,\n;])\s*([a-zA-Z0-9_\u00C0-\u1EF9]{2,20})\s+là\s+([^\n.!?]{4,100})/i);
+  if (defMatch && defMatch[1] && defMatch[2]) {
+    const term = defMatch[1].trim().toLowerCase();
+    const definition = defMatch[2].replace(/[:;=8][\-o\*\']?[)\](\[dDpP/\:\}\{@\|\\]/g, "").replace(/:v/gi, "").trim();
+    if (!["tôi", "bạn", "mình", "em", "anh", "nó", "đây", "đó", "ai", "cái"].includes(term) && !extracted.some(e => e.key === term)) {
+      const scope: MemoryScope = projectId ? "project" : "user";
+      const fullFact = `${defMatch[1].trim()} là ${definition}`;
+      const res = saveExplicitMemory({
+        key: term,
+        value: fullFact,
+        userId: cleanUserId,
+        scope,
+        projectId,
+        sourceMessageId: messageId,
+        extractedMethod: "explicit_instruction",
+      });
+      extracted.push({ key: res.memory.key, value: res.memory.value, method: "explicit" });
+    }
   }
 
   // 2. Global Knowledge Triggers: "Kiến thức:", "Kiến thức chung:", "Học rằng...", "Fact:", "Biết rằng..."
