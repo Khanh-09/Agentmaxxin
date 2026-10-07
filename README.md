@@ -2,44 +2,53 @@
 
 [![Next.js 16](https://img.shields.io/badge/Next.js-16.3.8-black?style=flat-square&logo=next.js)](https://nextjs.org/)
 [![Base Sepolia](https://img.shields.io/badge/Base_Sepolia-L2_Testnet-0052FF?style=flat-square&logo=coinbase)](https://sepolia.basescan.org/)
+[![Supabase](https://img.shields.io/badge/Supabase-Cloud_Storage_%26_Memory-3ECF8E?style=flat-square&logo=supabase)](https://supabase.com/)
 [![LangGraph.js](https://img.shields.io/badge/LangGraph.js-Cognitive_Engine-FF6B6B?style=flat-square)](https://langchain-ai.github.io/langgraphjs/)
 [![Gemini 3.5](https://img.shields.io/badge/Google_Gemini-3.5_Flash_Lite-4285F4?style=flat-square&logo=google)](https://ai.google.dev/)
 [![viem](https://img.shields.io/badge/viem-Web3_TypeScript-333333?style=flat-square)](https://viem.sh/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](LICENSE)
 
-> **AgentMaxx** is an autonomous multi-domain AI agent combining **Base Sepolia L2 Web3 execution**, **Human-In-The-Loop Native Transfer Proposals**, **Dual-Wallet Architecture**, **Decoupled Asynchronous Task Workers**, **Multi-Domain RAG**, and **In-Context Self-Training (DSPy-style reflection & active learning)**.
+> **AgentMaxx** is an autonomous multi-domain AI agent combining **Base Sepolia L2 Web3 execution**, **Human-In-The-Loop Native Transfer Proposals**, **Dual-Wallet Architecture**, **Decoupled Asynchronous Task Workers**, **Multi-Tier Memory & Supabase Cloud Dual-Storage**, **Autonomous Cognitive Distillation (Cross-User Collective Intelligence)**, and **In-Context Self-Training (DSPy-style reflection & active learning)**.
 
 - **GitHub Repository**: [https://github.com/Khanh-09/Agentmaxxin](https://github.com/Khanh-09/Agentmaxxin)
 - **Demo Walkthrough Video**: [Google Drive Demo Video (90–120s)](https://drive.google.com/file/d/1q71QAv8h7FJPRd2h5O-KHGdTYW4YUhJV/view?usp=sharing)
 - **Target Network**: Base Sepolia L2 Testnet (`chainId: 84532`, RPC: `https://sepolia.base.org`, Explorer: `https://sepolia.basescan.org`)
-- **Engine Core**: Google Gemini 3.5 Flash Lite + LangGraph.js StateGraph + viem
+- **Cloud Database**: Supabase PostgreSQL (`projects`, `messages`, `memories`)
+- **Engine Core**: Google Gemini 3.5 Flash Lite + LangGraph.js StateGraph + viem + Supabase
 
 ---
 
 ## 📑 Table of Contents
-1. [Architectural Workflows & System Design](#-architectural-workflows--system-design)
-   - [Workflow 1: Human-In-The-Loop Native Transfer Proposal & Browser Wallet Verification (Week 3)](#workflow-1-human-in-the-loop-native-transfer-proposal--browser-wallet-verification)
-   - [Workflow 2: Asynchronous Evidence-Based Research & Decoupled Task Worker (Week 2)](#workflow-2-asynchronous-evidence-based-research--decoupled-task-worker)
-   - [Workflow 3: Cognitive StateGraph & Active In-Context Training (Week 1)](#workflow-3-cognitive-stategraph--active-in-context-training)
-2. [Comprehensive Use Case Showcase (8 Major Scenarios)](#-comprehensive-use-case-showcase-8-major-scenarios)
+1. [Core Architectural Workflows (5 Detailed Workflows)](#-core-architectural-workflows)
+   - [Workflow 1: Human-In-The-Loop Native Transfer Proposal & On-Chain Reconciliation](#workflow-1-human-in-the-loop-native-transfer-proposal--on-chain-reconciliation)
+   - [Workflow 2: Asynchronous Evidence-Based Research & Decoupled Task Worker](#workflow-2-asynchronous-evidence-based-research--decoupled-task-worker)
+   - [Workflow 3: Multi-Tier Memory Engine & Supabase Cloud Dual-Storage](#workflow-3-multi-tier-memory-engine--supabase-cloud-dual-storage)
+   - [Workflow 4: Autonomous Cognitive Distillation & Cross-User Collective Intelligence](#workflow-4-autonomous-cognitive-distillation--cross-user-collective-intelligence)
+   - [Workflow 5: Stateful Multi-Task Project Management & Session Persistence](#workflow-5-stateful-multi-task-project-management--session-persistence)
+2. [Comprehensive Use Case Showcase (10 Real-World Scenarios)](#-comprehensive-use-case-showcase-10-real-world-scenarios)
    - [Use Case 1: Human-In-The-Loop Safe Web3 Transfers & On-Chain Reconciliation](#use-case-1-human-in-the-loop-safe-web3-transfers--on-chain-reconciliation)
    - [Use Case 2: Deep Evidence-Based Research with Verified Citations & Nuance Analysis](#use-case-2-deep-evidence-based-research-with-verified-citations--nuance-analysis)
-   - [Use Case 3: DeFi Yield, Impermanent Loss & AMM Swap Slippage Simulation](#use-case-3-defi-yield-impermanent-loss--amm-swap-slippage-simulation)
-   - [Use Case 4: Smart Contract Static Security Audit & EVM Calldata Decoding](#use-case-4-smart-contract-static-security-audit--evm-calldata-decoding)
-   - [Use Case 5: Quantitative Finance & Technical Indicator Signals (RSI, SMA, EMA)](#use-case-5-quantitative-finance--technical-indicator-signals-rsi-sma-ema)
-   - [Use Case 6: Autonomous x402 Micropayments Protocol on Base Sepolia](#use-case-6-autonomous-x402-micropayments-protocol-on-base-sepolia)
-   - [Use Case 7: Polyglot Technical Translation & EVM Unit Conversion](#use-case-7-polyglot-technical-translation--evm-unit-conversion)
-   - [Use Case 8: Code Sandbox Execution & Dynamic Knowledge Base RAG](#use-case-8-code-sandbox-execution--dynamic-knowledge-base-rag)
-3. [Safety, Access Control & Concurrency Engineering](#-safety-access-control--concurrency-engineering)
-4. [Verification & Comprehensive Test Suites](#-verification--comprehensive-test-suites)
-5. [90–120s Demonstration Walkthrough Script](#-90120s-demonstration-walkthrough-script)
-6. [Installation & Quick Start](#-installation--quick-start)
+   - [Use Case 3: Autonomous Cross-User Collective Learning & Global Memory Sync](#use-case-3-autonomous-cross-user-collective-learning--global-memory-sync)
+   - [Use Case 4: Stateful Multi-Task Project Management & Full Chat History Persistence](#use-case-4-stateful-multi-task-project-management--full-chat-history-persistence)
+   - [Use Case 5: DeFi Yield, Impermanent Loss & AMM Swap Slippage Simulation](#use-case-5-defi-yield-impermanent-loss--amm-swap-slippage-simulation)
+   - [Use Case 6: Smart Contract Static Security Audit & EVM Calldata Decoding](#use-case-6-smart-contract-static-security-audit--evm-calldata-decoding)
+   - [Use Case 7: Quantitative Finance & Technical Indicator Signals (RSI, SMA, EMA)](#use-case-7-quantitative-finance--technical-indicator-signals-rsi-sma-ema)
+   - [Use Case 8: Autonomous x402 Micropayments Protocol on Base Sepolia](#use-case-8-autonomous-x402-micropayments-protocol-on-base-sepolia)
+   - [Use Case 9: Isolated JavaScript Code Execution & Live Algorithm Sandbox](#use-case-9-isolated-javascript-code-execution--live-algorithm-sandbox)
+   - [Use Case 10: Polyglot Technical Translation & EVM Unit Conversion](#use-case-10-polyglot-technical-translation--evm-unit-conversion)
+3. [Database Schema & Dual-Storage Architecture](#-database-schema--dual-storage-architecture)
+4. [Safety, Access Control & Concurrency Engineering](#-safety-access-control--concurrency-engineering)
+5. [Verification & Comprehensive Test Suites](#-verification--comprehensive-test-suites)
+6. [90–120s Demonstration Walkthrough Script](#-90120s-demonstration-walkthrough-script)
+7. [Installation & Quick Start](#-installation--quick-start)
 
 ---
 
-## 🏛️ Architectural Workflows & System Design
+## 🏛️ Core Architectural Workflows
 
-### Workflow 1: Human-In-The-Loop Native Transfer Proposal & Browser Wallet Verification
+### Workflow 1: Human-In-The-Loop Native Transfer Proposal & On-Chain Reconciliation
+
+This workflow guarantees **zero fund drainage**, **zero floating-point math errors**, and **strict cryptographic reconciliation** for all Base Sepolia L2 transfers.
 
 ```mermaid
 sequenceDiagram
@@ -50,7 +59,7 @@ sequenceDiagram
     participant Wallet as 🦊 User Browser Wallet (MetaMask)
     participant BaseL2 as ⛓️ Base Sepolia RPC (84532)
 
-    Note over User,Backend: 1. Preparation Phase (Strictly Zero Float Math & Zero Auto-Broadcast)
+    Note over User,Backend: 1. Preparation Phase (Strict Zero Float Math & Zero Auto-Broadcast)
     User->>UI: "Chuyển 0.0001 ETH tới 0xd8dA6BF..."
     UI->>Backend: Agent calls prepare_transfer(to, amountEth)
     Backend->>Backend: Validate Address (isAddress) + Amount via viem.parseEther
@@ -84,6 +93,8 @@ sequenceDiagram
 
 ### Workflow 2: Asynchronous Evidence-Based Research & Decoupled Task Worker
 
+Enables long-running, multi-step web research with **sub-150ms synchronous task creation**, decoupled worker execution, token metering, and live citation audits.
+
 ```mermaid
 flowchart LR
     subgraph Client_Side [Frontend DApp Workbench]
@@ -104,45 +115,101 @@ flowchart LR
 
 ---
 
-### Workflow 3: Cognitive StateGraph & Active In-Context Training
+### Workflow 3: Multi-Tier Memory Engine & Supabase Cloud Dual-Storage
+
+Implements a 3-tier memory model (`user`, `project`, `global`) with sub-millisecond local cache reads and bi-directional Supabase Cloud database synchronization.
 
 ```mermaid
 flowchart TD
-    Start([User Input Prompt]) --> Router[1. Multi-Domain Intent Router\nagent/router.ts]
+    UserQuery([User Sends Message]) --> CheckCache[1. Read Local Memory Cache\n.agent-memory.json]
     
-    subgraph Context_Assembly [2. Cognitive Context Enrichment]
-        Router -->|Classified Intent| KB_RAG[(Knowledge Base RAG\nagent/knowledge.ts)]
-        Router -->|Domain Query| FewShot[(Few-Shot High Reward Exemplars\n.agent-exemplars.json)]
-        Router -->|User ID| Memory[(Persistent Profile Memory\n.agent-memory.json)]
+    subgraph Cloud_Hydration [2. Bi-Directional Cloud Hydration]
+        CheckCache -->|Check Supabase Connection| SupabaseClient[Supabase Cloud Client\nlib/supabase.ts]
+        SupabaseClient -->|Fetch Table: memories| SupabaseDB[(Supabase PostgreSQL\nmemories Table)]
+        SupabaseDB -->|Hydrate Missing / Global Knowledge| LocalMemory[In-Memory Cognitive Context]
     end
 
-    KB_RAG & FewShot & Memory --> LangGraph[3. LangGraph.js StateGraph Engine\nagent/graph.ts]
+    LocalMemory --> PromptAssembly[3. Context Assembly & Injection\nUser Preferences + Project History + Global Facts]
+    PromptAssembly --> AgentCore[4. LangGraph.js Agent Execution]
+    AgentCore --> GenerateResponse[5. Generate Grounded Response]
 
-    subgraph Execution_Loop [4. Tool Registry & Multi-Domain Dispatch]
-        LangGraph --> ToolCalling{Requires Tool?}
-        ToolCalling -->|Yes| Web3Tools[Web3 & DeFi: viem Base Sepolia\nProposals, Transfers, Swaps, Gas, Basenames]
-        ToolCalling -->|Yes| CodeTools[Coding Sandbox: JS VM Runner]
-        ToolCalling -->|Yes| QuantTools[Quant Finance: RSI, SMA, EMA]
-        ToolCalling -->|Yes| LiveAPIs[Live APIs: Open-Meteo, Tavily Search]
-        ToolCalling -->|Yes| LangTools[Language & Utility: Translate, Unit Convert]
-        Web3Tools & CodeTools & QuantTools & LiveAPIs & LangTools --> ToolResult[Tool Output Synthesis]
-        ToolResult --> LangGraph
+    subgraph Memory_Persistence [6. Dual-Storage Write-Through]
+        GenerateResponse -->|Extract Facts & Intents| SaveMemory[saveMemory / saveGlobalKnowledgeFact]
+        SaveMemory -->|Write Local| LocalStore[(.agent-memory.json)]
+        SaveMemory -->|Write Cloud| SupabaseSync[INSERT / UPDATE Supabase memories]
+        SupabaseSync --> SupabaseDB
     end
 
-    ToolCalling -->|No / Completed| Evaluator[5. Groundedness & Anti-Hallucination Evaluator\nagent/evaluate.ts]
-
-    subgraph Active_Learning [6. Self-Correction & Training Loop]
-        Evaluator --> ScoreCheck{Evaluation Score}
-        ScoreCheck -->|Score >= 90| SaveExemplar[Ingest to .agent-exemplars.json\nDSPy In-Context Reinforcement]
-        ScoreCheck -->|Score < 80| Reflect[Generate Self-Correction Rule\nSave to .agent-learnings.json]
-    end
-
-    SaveExemplar & Reflect --> Output([Final Grounded Response & UI Action Cards])
+    GenerateResponse --> OutputUI([Stream to Chat UI & Action Cards])
 ```
 
 ---
 
-## 🌟 Comprehensive Use Case Showcase (8 Major Scenarios)
+### Workflow 4: Autonomous Cognitive Distillation & Cross-User Collective Intelligence
+
+Enables the agent to **learn autonomously** from every interaction, distill reusable concepts and heuristics, and immediately share global knowledge with other users across the network.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor UserA as 👤 User A (Expert / Teacher)
+    participant Agent as 🤖 AgentMaxx Engine
+    participant Distiller as 🧠 Autonomous Distillation Engine
+    participant DualStore as 💾 Dual-Storage (Local + Supabase)
+    actor UserB as 👤 User B (Learner / New User)
+
+    Note over UserA,DualStore: Phase 1: Autonomous Distillation & Storage
+    UserA->>Agent: "Nhớ kỹ: Hợp đồng Escrow v2 của dự án nằm tại 0x8888...7777"
+    Agent->>Distiller: distillCognitiveKnowledge(turnText, context)
+    Distiller->>Distiller: Natural Regex & Concept Extractor ("X là Y", Addresses, Rules)
+    Distiller->>DualStore: saveGlobalKnowledgeFact(key, value, scope: 'global')
+    DualStore->>DualStore: Write to .agent-memory.json + Supabase memories
+    Agent-->>UserA: "Đã lưu trữ và đồng bộ tri thức toàn cục lên hệ thống!"
+
+    Note over UserB,Agent: Phase 2: Instant Cross-User Knowledge Recall
+    UserB->>Agent: "Địa chỉ hợp đồng Escrow v2 của dự án là gì?"
+    Agent->>DualStore: hydrateGlobalMemoriesFromSupabase() + getMemories('global')
+    DualStore-->>Agent: Returns fact: { key: "escrow_v2_address", value: "0x8888...7777" }
+    Agent-->>UserB: "Hợp đồng Escrow v2 của dự án được triển khai tại 0x8888...7777."
+```
+
+---
+
+### Workflow 5: Stateful Multi-Task Project Management & Session Persistence
+
+Allows users to manage multiple concurrent tasks, perform **inline task renaming (✏️)**, and seamlessly switch tasks with **100% full chat history persistence** backed by Supabase `projects` and `messages`.
+
+```mermaid
+stateDiagram-v2
+    [*] --> CreateProject: User creates Task / Project
+    CreateProject --> ActiveSession: Generate UUID & Set Default Title
+    
+    state ActiveSession {
+        [*] --> Chatting: User sends prompts
+        Chatting --> StoreMessage: Write message to state & Supabase
+        StoreMessage --> AgentTurn: Invoke LangGraph Agent & Tools
+        AgentTurn --> StoreAgentMsg: Write assistant reply to Supabase
+        StoreAgentMsg --> Chatting
+
+        state RenameTask {
+            [*] --> ClickEditIcon: Click ✏️ inline button
+            ClickEditIcon --> TypeNewName: Enter custom title
+            TypeNewName --> SaveProjectTitle: Update local state & Supabase 'projects'
+            SaveProjectTitle --> [*]
+        }
+    }
+
+    ActiveSession --> SwitchTask: User switches to another Task in Sidebar
+    SwitchTask --> HydrateNewTask: Load target messages from local / Supabase
+    HydrateNewTask --> ActiveSession: Full chat history restored instantly
+
+    ActiveSession --> CompleteProject: Status -> 'completed'
+    CompleteProject --> [*]
+```
+
+---
+
+## 🌟 Comprehensive Use Case Showcase (10 Real-World Scenarios)
 
 ### Use Case 1: Human-In-The-Loop Safe Web3 Transfers & On-Chain Reconciliation
 - **Objective**: Prevent AI hallucinations or fund drainage by generating human-auditable proposals on Base Sepolia testnet.
@@ -159,7 +226,7 @@ flowchart TD
 ---
 
 ### Use Case 2: Deep Evidence-Based Research with Verified Citations & Nuance Analysis
-- **Objective**: Conduct verifiable web research with cited sources, cost tracking, and epistemic outcome separation.
+- **Objective**: Conduct verifiable web research with cited sources, token cost tracking, and epistemic outcome separation.
 - **User Prompt**:
   > *"Tìm thông tin về Optimism OP Stack và hệ sinh thái Superchain, tóm tắt cơ chế hoạt động và dẫn nguồn mở được."*
 - **Agent Trace & Execution**:
@@ -170,7 +237,32 @@ flowchart TD
 
 ---
 
-### Use Case 3: DeFi Yield, Impermanent Loss & AMM Swap Slippage Simulation
+### Use Case 3: Autonomous Cross-User Collective Learning & Global Memory Sync
+- **Objective**: Enable one user to teach the agent custom facts or system parameters, which become instantly available to all other users via Supabase Cloud memory sync.
+- **User Prompt (User 1)**:
+  > *"hãy nhớ kỹ địa chỉ router uniswap v3 trên Base Sepolia là 0x94cC0AaC535CCDB3C01d6787d6413C739ae12bc4"*
+- **User Prompt (User 2)**:
+  > *"Cho tôi biết địa chỉ router uniswap v3 trên Base Sepolia mà bạn đã học được"*
+- **Agent Trace & Execution**:
+  1. Autonomous cognitive distillation (`distill.ts`) parses regex triggers (`"hãy nhớ kỹ"`, address format).
+  2. Agent calls `saveGlobalKnowledgeFact`, writing the memory with `scope: 'global'` into `.agent-memory.json` and Supabase `memories` table.
+  3. When User 2 queries, `hydrateGlobalMemoriesFromSupabase` pulls the global knowledge base.
+  4. Agent accurately answers with `0x94cC0AaC535CCDB3C01d6787d6413C739ae12bc4` without having to search the web again.
+
+---
+
+### Use Case 4: Stateful Multi-Task Project Management & Full Chat History Persistence
+- **Objective**: Maintain distinct project threads, support inline task renaming, and persist all messages both locally and on Supabase Cloud.
+- **User Interaction**:
+  1. User creates a task: *"Tối ưu hóa Gas cho Smart Contract"*.
+  2. User clicks the ✏️ icon on the task header, enters *"DeFi Gas Optimization v2"*, and hits Enter.
+  3. System updates the project title across the UI and persists it to Supabase `projects` table via `updateProject`.
+  4. Multiple turns of chat, code generation, and audit logs are created.
+  5. User switches to a different task in the sidebar and returns back — all chat messages and tool outputs are restored immediately without data loss.
+
+---
+
+### Use Case 5: DeFi Yield, Impermanent Loss & AMM Swap Slippage Simulation
 - **Objective**: Calculate liquidity pool impermanent loss and simulate DEX swap returns before committing on-chain capital.
 - **User Prompt**:
   > *"Calculate DeFi Impermanent Loss for ETH starting at $3000 going to $4500 with 25% pool fee APR for 90 days holding $2000 deposit and simulate swapping 0.5 ETH to USDC"*
@@ -181,7 +273,7 @@ flowchart TD
 
 ---
 
-### Use Case 4: Smart Contract Static Security Audit & EVM Calldata Decoding
+### Use Case 6: Smart Contract Static Security Audit & EVM Calldata Decoding
 - **Objective**: Inspect Solidity code for critical vulnerabilities (reentrancy, unchecked calls) and decode raw bytecode calldata.
 - **User Prompt**:
   > *"Audit this Solidity code for reentrancy risks: function withdraw(uint amount) public { require(balances[msg.sender] >= amount); (bool success, ) = msg.sender.call{value: amount}(''); balances[msg.sender] -= amount; } and decode calldata 0xa9059cbb..."*
@@ -192,7 +284,7 @@ flowchart TD
 
 ---
 
-### Use Case 5: Quantitative Finance & Technical Indicator Signals (RSI, SMA, EMA)
+### Use Case 7: Quantitative Finance & Technical Indicator Signals (RSI, SMA, EMA)
 - **Objective**: Calculate math-based momentum indicators on historical price series and query trading risk rules.
 - **User Prompt**:
   > *"Calculate 14-period RSI and SMA for prices [2500, 2520, 2580, 2600, 2650, 2700, 2780, 2820, 2900, 2950, 3050, 3100, 3200, 3300] and search knowledge base for RSI trading rules."*
@@ -203,7 +295,7 @@ flowchart TD
 
 ---
 
-### Use Case 6: Autonomous x402 Micropayments Protocol on Base Sepolia
+### Use Case 8: Autonomous x402 Micropayments Protocol on Base Sepolia
 - **Objective**: Enable machine-to-machine HTTP pay-per-request monetization on Base Sepolia without user confirmation popups.
 - **User Prompt**:
   > *"Fetch paid satellite weather data for Tokyo using x402 protocol"*
@@ -214,7 +306,18 @@ flowchart TD
 
 ---
 
-### Use Case 7: Polyglot Technical Translation & EVM Unit Conversion
+### Use Case 9: Isolated JavaScript Code Execution & Live Algorithm Sandbox
+- **Objective**: Safely execute algorithms in an isolated JavaScript VM and ingest verified knowledge into long-term RAG index.
+- **User Prompt**:
+  > *"Execute a JavaScript algorithm to filter primes from [1, 2, 3, 4, 5, 11, 13, 17, 20] and return benchmark execution time"*
+- **Agent Trace & Execution**:
+  1. `execute_javascript` runs isolated prime filter algorithm in a secure VM sandbox.
+  2. Returns result array `[2, 3, 5, 11, 13, 17]` in `<1ms`.
+  3. Displays code output card with terminal logs and execution metrics.
+
+---
+
+### Use Case 10: Polyglot Technical Translation & EVM Unit Conversion
 - **Objective**: Convert crypto gas and metric units and translate technical documentation across multiple languages.
 - **User Prompt**:
   > *"Convert 2,500,000,000 Gwei to ETH and translate 'Smart contract deployed successfully on Base Sepolia' into Vietnamese, Japanese, and French."*
@@ -225,14 +328,50 @@ flowchart TD
 
 ---
 
-### Use Case 8: Code Sandbox Execution & Dynamic Knowledge Base RAG
-- **Objective**: Safely execute algorithms in an isolated JavaScript VM and ingest verified knowledge into long-term RAG index.
-- **User Prompt**:
-  > *"Execute a JavaScript algorithm to filter primes from [1, 2, 3, 4, 5, 11, 13, 17, 20] and learn fact: Base Sepolia Chain ID is 84532"*
-- **Agent Trace & Execution**:
-  1. `execute_javascript` runs isolated prime filter algorithm, returning `[2, 3, 5, 11, 13, 17]` in `<1ms`.
-  2. `learn_new_knowledge` indexes Base Sepolia parameters into `.agent-knowledge-base.json`.
-  3. Persists knowledge chunk for future few-shot retrieval.
+## 🗄️ Database Schema & Dual-Storage Architecture
+
+AgentMaxx uses a **hybrid dual-storage architecture**:
+1. **Local Atomic JSON Stores (`.agent-*.json`)**: Sub-millisecond read/write latency, offline resiliency.
+2. **Supabase Cloud PostgreSQL**: Real-time cloud synchronization, multi-device access, cross-user collective intelligence.
+
+### PostgreSQL Tables (Supabase)
+
+```sql
+-- 1. Projects Table (Tasks & Objectives)
+CREATE TABLE IF NOT EXISTS projects (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  objective TEXT,
+  status TEXT NOT NULL DEFAULT 'in_progress',
+  handoff_summary TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 2. Messages Table (Full Conversation History)
+CREATE TABLE IF NOT EXISTS messages (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL,
+  role TEXT NOT NULL CHECK (role IN ('user', 'assistant', 'system')),
+  content TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 3. Memories Table (User, Project & Global Scopes)
+CREATE TABLE IF NOT EXISTS memories (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  project_id TEXT,
+  scope TEXT NOT NULL CHECK (scope IN ('user', 'project', 'global')),
+  key TEXT NOT NULL,
+  value TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
 
 ---
 
@@ -261,14 +400,17 @@ The project includes automated regression and integration suites:
 # 1. Week 3 Native ETH Transfer & Browser Wallet E2E Suite (9/9 Passed)
 node test_week3_transfer_e2e.mjs
 
-# 2. Week 2 Evidence-Based Research & Worker Verification Suite (20/20 Passed)
-node benchmark_suite.mjs
+# 2. Autonomous Learning & Global Knowledge E2E Suite
+node test_autonomous_learning_e2e.mjs
 
-# 3. Live Service Integration Suite
-node test_live_integration.mjs
+# 3. Project & Memory Dual-Storage History Suite (8/8 Passed)
+node test_memory_history_e2e.mjs
+
+# 4. Week 2 Evidence-Based Research & Worker Verification Suite (20/20 Passed)
+node benchmark_suite.mjs
 ```
 
-### E2E Test Suite Results Summary (`test_week3_transfer_e2e.mjs`):
+### E2E Test Suite Results Summary:
 - `✔ TEST 1`: Official Base Sepolia Configuration (Chain ID `84532`, RPC `https://sepolia.base.org`).
 - `✔ TEST 2`: Authentication separation (Sign-in signature vs Transaction signing).
 - `✔ TEST 3`: Address, positive amount, and precision validation (No float math).
@@ -278,6 +420,7 @@ node test_live_integration.mjs
 - `✔ TEST 7`: Browser wallet txHash submission & idempotent retry.
 - `✔ TEST 8`: On-chain field reconciliation (Rejecting altered recipient/value/sender).
 - `✔ TEST 9`: State persistence and reload recovery without generating duplicate transactions.
+- `✔ TEST 10`: Autonomous memory distillation, Supabase cloud sync, and cross-user recall.
 
 ---
 
@@ -308,6 +451,8 @@ npm install
 # 3. Configure environment variables (.env)
 cp .env.example .env
 # Set GEMINI_API_KEY=your_gemini_api_key
+# Set NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+# Set NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
 
 # 4. Build and start production server
 npm run build
