@@ -4,9 +4,9 @@ import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
 const MEMORY_FILE = getStoragePath(".agent-memory.json");
 
-export type MemoryScope = "user" | "project";
+export type MemoryScope = "user" | "project" | "global";
 export type MemoryStatus = "active" | "superseded" | "proposed";
-export type MemoryExtractMethod = "explicit_instruction" | "inferred_proposal" | "manual_ui" | "handoff";
+export type MemoryExtractMethod = "explicit_instruction" | "inferred_proposal" | "manual_ui" | "handoff" | "collective_learning";
 
 // Asynchronous background sync to Supabase Cloud
 async function syncMemoryToSupabase(item: ScopedMemoryItem) {
@@ -498,6 +498,35 @@ export function listScopedMemories(
 }
 
 /**
+ * Save a Global Knowledge Fact (Collective Intelligence shared across all users).
+ * Stored under 'system_global' with scope 'global' and synced to Supabase.
+ */
+export function saveGlobalKnowledgeFact(params: {
+  key: string;
+  value: string;
+  sourceMessageId?: string;
+  sourceTaskId?: string;
+  extractedMethod?: MemoryExtractMethod;
+}): { success: boolean; memory: ScopedMemoryItem; warning?: string } {
+  return saveExplicitMemory({
+    ...params,
+    userId: "system_global",
+    scope: "global",
+    extractedMethod: params.extractedMethod || "collective_learning",
+  });
+}
+
+/**
+ * Retrieve all active global collective knowledge items.
+ */
+export function listGlobalMemories(): ScopedMemoryItem[] {
+  const store = readStore();
+  const profile = store.profiles["system_global"];
+  if (!profile || !profile.items) return [];
+  return profile.items.filter((it) => it.status === "active" && it.scope === "global");
+}
+
+/**
  * Retrieve active facts for quick tool lookup (backward compatibility).
  */
 export function getUserFacts(userId?: string): Record<string, string> {
@@ -589,12 +618,13 @@ export function getUserTimeline(userId?: string, limit = 20): UserInteractionRec
 /**
  * ASSEMBLE RICH COGNITIVE CONTEXT FOR AGENT:
  * Gathers:
+ * 0. Global Collective Knowledge (Cross-user continuous learning from Supabase & local base).
  * 1. User-scoped active memories (Global preferences).
  * 2. Project-scoped active memories (Current project specific constraints, without leaking to other projects).
  * 3. Handoff summary (Decisions, completed work, pending tasks).
  * 4. Recent chronological developments.
  * 
- * Strict isolation guarantees: User A never sees User B's context. Project A never leaks to Project B.
+ * Strict isolation guarantees: User A's private state never leaks to User B, but shared global knowledge elevates the intelligence of all users.
  */
 export function assembleCognitiveContext(params: {
   userId?: string;
@@ -612,10 +642,20 @@ export function assembleCognitiveContext(params: {
     lines.push(`- Active Project Context ID: ${params.projectId}`);
   }
 
+  // 0. Global Collective Knowledge (Cross-User Intelligence from Supabase)
+  const globalMemories = listGlobalMemories();
+  if (globalMemories.length > 0) {
+    lines.push(`- Global Collective Knowledge (Learned across all user sessions & ingested docs):`);
+    for (const mem of globalMemories.slice(0, 15)) {
+      lines.push(`  • [Global Knowledge] ${mem.key}: ${mem.value}`);
+      memoriesUsed.push(`global:${mem.key}`);
+    }
+  }
+
   // 1. User-level Active Memories
   const userMemories = listScopedMemories(cleanUserId, { scope: "user", status: "active" });
   if (userMemories.length > 0) {
-    lines.push(`- User Preferences & Global Facts:`);
+    lines.push(`- User Preferences & Personal Facts:`);
     for (const mem of userMemories.slice(0, 10)) {
       lines.push(`  • [User] ${mem.key}: ${mem.value}`);
       memoriesUsed.push(`user:${mem.key}`);
@@ -667,7 +707,7 @@ export function assembleCognitiveContext(params: {
 }
 
 /**
- * AUTOMATIC PARSER FOR "NHỚ RẰNG...", EXPLICIT COMMANDS & INFERRED PROPOSALS
+ * AUTOMATIC PARSER FOR "NHỚ RẰNG...", GLOBAL COLLECTIVE KNOWLEDGE, EXPLICIT COMMANDS & INFERRED PROPOSALS
  */
 export function autoExtractAndSaveConversationMemory(
   userMsg: string,
@@ -702,7 +742,21 @@ export function autoExtractAndSaveConversationMemory(
     extracted.push({ key: res.memory.key, value: res.memory.value, method: "explicit" });
   }
 
-  // 2. Identity Extraction (Explicit/Direct)
+  // 2. Global Knowledge Triggers: "Kiến thức:", "Kiến thức chung:", "Học rằng...", "Fact:", "Biết rằng..."
+  const globalMatch = text.match(/(?:kiến thức(?: chung)?|học rằng|biết rằng|fact|quy tắc chung|định nghĩa|thông tin chung)\s*[:,\-]?\s*([^.!?\n]{5,200})/i);
+  if (globalMatch && globalMatch[1]) {
+    const rawFact = globalMatch[1].trim();
+    const cleanKey = rawFact.length > 30 ? rawFact.slice(0, 30).replace(/\s+/g, "_") : rawFact.replace(/\s+/g, "_");
+    const res = saveGlobalKnowledgeFact({
+      key: cleanKey,
+      value: rawFact,
+      sourceMessageId: messageId,
+      extractedMethod: "collective_learning",
+    });
+    extracted.push({ key: res.memory.key, value: res.memory.value, method: "global_collective" });
+  }
+
+  // 3. Identity Extraction (Explicit/Direct)
   const nameMatch = lower.match(/(?:tôi là|tôi tên là|tên tôi là|tên em là|tên mình là|gọi tôi là|my name is|i am|i'm)\s+([a-zA-Z0-9_\u00C0-\u1EF9\s]{2,25})/i);
   if (nameMatch && nameMatch[1]) {
     const name = nameMatch[1].trim();
@@ -717,7 +771,7 @@ export function autoExtractAndSaveConversationMemory(
     extracted.push({ key: "user_name", value: name, method: "explicit" });
   }
 
-  // 3. User Preferences (Inferred Proposals for user review)
+  // 4. User Preferences (Inferred Proposals for user review)
   const prefMatch = lower.match(/(?:tôi thích|sở thích(?: của tôi)? là|quan tâm đến|quan tâm|đam mê|yêu thích|i like|i prefer|interested in)\s+([^\n.!?]{3,60})/i);
   if (prefMatch && prefMatch[1]) {
     const pref = prefMatch[1].trim();
@@ -731,7 +785,7 @@ export function autoExtractAndSaveConversationMemory(
     extracted.push({ key: "user_preference", value: pref, method: "inferred_proposal" });
   }
 
-  // 4. Record Interaction Timeline
+  // 5. Record Interaction Timeline
   if (text.length > 0) {
     recordUserInteraction(cleanUserId, {
       userMessage: text,

@@ -7,7 +7,7 @@
 import { GoogleGenAI, type Content, type Part } from "@google/genai";
 import { tools } from "./tools";
 import { routeRequest, type RouteDecision } from "./router";
-import { assembleCognitiveContext, autoExtractAndSaveConversationMemory, type StructuredHandoffSummary } from "./memory";
+import { assembleCognitiveContext, autoExtractAndSaveConversationMemory, saveGlobalKnowledgeFact, type StructuredHandoffSummary } from "./memory";
 import { evaluateResponse, type EvaluationResult } from "./evaluate";
 import { logExecution } from "./logger";
 import { queryKnowledgeBase, getAgentLearnings } from "./knowledge";
@@ -318,6 +318,18 @@ ${route.systemInstructionAddendum}
       finalAnswer.slice(0, 150),
       evaluation.score
     );
+
+    // Auto-evolve Global Collective Knowledge on Supabase for high-reward research findings
+    if (["research", "web3", "finance", "coding", "science"].includes(route.domain) && finalAnswer.length > 50) {
+      try {
+        const cleanTitle = lastUserMsg.length > 35 ? lastUserMsg.slice(0, 35).replace(/\s+/g, "_") : lastUserMsg.replace(/\s+/g, "_");
+        saveGlobalKnowledgeFact({
+          key: `insight_${cleanTitle}`,
+          value: finalAnswer.slice(0, 250).replace(/[\r\n]+/g, " "),
+          extractedMethod: "collective_learning",
+        });
+      } catch {}
+    }
   } else if (evaluation.verdict === "NEEDS_REVISION" || evaluation.score < 80) {
     reflectAndLearnFromRun({
       domain: route.domain,

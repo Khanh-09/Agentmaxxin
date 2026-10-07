@@ -6,6 +6,7 @@
  */
 import fs from "fs";
 import { getStoragePath } from "@/lib/storage";
+import { saveGlobalKnowledgeFact } from "./memory";
 
 const KNOWLEDGE_FILE = getStoragePath(".agent-knowledge-base.json");
 const LEARNINGS_FILE = getStoragePath(".agent-learnings.json");
@@ -139,6 +140,17 @@ export function addKnowledgeItem(domain: KnowledgeItem["domain"], title: string,
   };
   kb.unshift(newItem);
   saveKnowledgeBase(kb);
+
+  // Sync to Global Collective Memory & Supabase
+  try {
+    const cleanKey = title.length > 35 ? title.slice(0, 35).replace(/\s+/g, "_") : title.replace(/\s+/g, "_");
+    saveGlobalKnowledgeFact({
+      key: cleanKey,
+      value: content.length > 300 ? content.slice(0, 300) + "..." : content,
+      extractedMethod: "collective_learning",
+    });
+  } catch {}
+
   return newItem;
 }
 

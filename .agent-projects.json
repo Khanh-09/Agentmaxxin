@@ -1,5 +1,130 @@
 [
   {
+    "id": "proj_beta_1791341298301",
+    "userId": "guest_7fe667c8a1cf4159",
+    "title": "Project Beta - NFT Faucet",
+    "objective": "Distribute NFT badges to testnet users",
+    "status": "ACTIVE",
+    "domain": "general",
+    "messages": [
+      {
+        "id": "msg_1791341313632_0_nud",
+        "role": "user",
+        "text": "Tạo NFT faucet",
+        "content": "Tạo NFT faucet",
+        "createdAt": "2026-10-07T02:48:33.631Z"
+      }
+    ],
+    "currentTaskStatus": "queued",
+    "createdAt": "2026-10-07T02:48:33.631Z",
+    "updatedAt": "2026-10-07T02:48:33.631Z"
+  },
+  {
+    "id": "proj_alpha_1791341298301",
+    "userId": "guest_7fe667c8a1cf4159",
+    "title": "Project Alpha - DeFi Arbitrage",
+    "objective": "Build arbitrage bot on Base Sepolia",
+    "status": "ACTIVE",
+    "domain": "general",
+    "messages": [
+      {
+        "id": "msg_1791341299372_0_uj2",
+        "role": "user",
+        "text": "Nhớ rằng gas_limit_max = 500000 cho dự án Alpha",
+        "content": "Nhớ rằng gas_limit_max = 500000 cho dự án Alpha",
+        "createdAt": "2026-10-07T02:48:19.372Z"
+      }
+    ],
+    "currentTaskStatus": "queued",
+    "createdAt": "2026-10-07T02:48:19.372Z",
+    "updatedAt": "2026-10-07T02:48:33.610Z",
+    "handoffSummary": {
+      "objective": "Build arbitrage bot on Base Sepolia",
+      "decisions": [
+        "Use Base Sepolia testnet",
+        "Max gas limit 500,000"
+      ],
+      "completedWork": [
+        "Configured provider",
+        "Set up wallet"
+      ],
+      "pendingWork": [
+        "Write smart contract adapter",
+        "Deploy proposal worker"
+      ],
+      "relevantTasks": [
+        "task_init_1"
+      ],
+      "lastUpdated": "2026-10-07T02:48:33.608Z"
+    }
+  },
+  {
+    "id": "proj_1791341279484",
+    "userId": "guest_df1011743e9647d8",
+    "title": "AgentMaxx Pro sử dụng mô hình execution gì và...",
+    "objective": "AgentMaxx Pro sử dụng mô hình execution gì và kết hợp những công nghệ nào?",
+    "status": "ACTIVE",
+    "domain": "general",
+    "messages": [
+      {
+        "id": "msg_1791341281723_0_1h9",
+        "role": "user",
+        "text": "AgentMaxx Pro sử dụng mô hình execution gì và kết hợp những công nghệ nào?",
+        "content": "AgentMaxx Pro sử dụng mô hình execution gì và kết hợp những công nghệ nào?",
+        "createdAt": "2026-10-07T02:48:01.723Z"
+      },
+      {
+        "id": "msg_1791341281723_1_zxl",
+        "role": "agent",
+        "text": "Chào bạn! Dựa trên cơ sở tri thức toàn cục (Global Knowledge) đã được lưu trữ trong hệ thống của tôi, dưới đây là thông tin chi tiết về mô hình execution và các công nghệ mà AgentMaxx Pro sử dụng:\n\n### 📌 Kết Luận Chính\n* **Mô hình Execution:** AgentMaxx Pro sử dụng mô hình **hybrid execution** (mô hình thực thi kết hợp/lai).\n* **Công nghệ kết hợp:** Mô hình này kết hợp chặt chẽ giữa **Supabase Cloud** (cho quản lý dữ liệu, bộ nhớ và trạng thái) và **Base Sepolia L2** (mạng lưới layer-2 trên nền tảng Ethereum hỗ trợ ví on-chain và các giao dịch thông minh).\n\n---\n### 🔍 Bằng Chứng & Nguồn Dữ Liệu\n* **Nguồn trích xuất:** Cơ sở tri thức toàn cục hệ thống (`[Global Knowledge] agentmaxx_pro_sử_dụng_mô_hình_`).\n* **Nội dung ghi nhận:** `AgentMaxx Pro sử dụng mô hình hybrid execution kết hợp Supabase Cloud và Base Sepolia L2`.\n\n---\n### ⚖️ Điểm Chưa Chắc Chắc Hoặc Khác Biệt Nguồn Dữ Liệu\n* Hiện tại không có sự khác biệt hoặc mâu thuẫn dữ liệu nào giữa các nguồn tri thức về kiến trúc execution của AgentMaxx Pro.\n\n---\n### 🚀 Bước Hành Động Tiếp Theo\n1. Kiểm tra trạng thái ví on-chain hoặc số dư trên Base Sepolia nếu bạn muốn thực hiện các thao tác giao dịch (như `get_wallet_info` hoặc kiểm tra số dư ERC-20).\n2. Khám phá các tính năng tích hợp công nghệ Web3 và cơ sở dữ liệu Supabase thông qua các câu lệnh tiếp theo của bạn.",
+        "content": "Chào bạn! Dựa trên cơ sở tri thức toàn cục (Global Knowledge) đã được lưu trữ trong hệ thống của tôi, dưới đây là thông tin chi tiết về mô hình execution và các công nghệ mà AgentMaxx Pro sử dụng:\n\n### 📌 Kết Luận Chính\n* **Mô hình Execution:** AgentMaxx Pro sử dụng mô hình **hybrid execution** (mô hình thực thi kết hợp/lai).\n* **Công nghệ kết hợp:** Mô hình này kết hợp chặt chẽ giữa **Supabase Cloud** (cho quản lý dữ liệu, bộ nhớ và trạng thái) và **Base Sepolia L2** (mạng lưới layer-2 trên nền tảng Ethereum hỗ trợ ví on-chain và các giao dịch thông minh).\n\n---\n### 🔍 Bằng Chứng & Nguồn Dữ Liệu\n* **Nguồn trích xuất:** Cơ sở tri thức toàn cục hệ thống (`[Global Knowledge] agentmaxx_pro_sử_dụng_mô_hình_`).\n* **Nội dung ghi nhận:** `AgentMaxx Pro sử dụng mô hình hybrid execution kết hợp Supabase Cloud và Base Sepolia L2`.\n\n---\n### ⚖️ Điểm Chưa Chắc Chắc Hoặc Khác Biệt Nguồn Dữ Liệu\n* Hiện tại không có sự khác biệt hoặc mâu thuẫn dữ liệu nào giữa các nguồn tri thức về kiến trúc execution của AgentMaxx Pro.\n\n---\n### 🚀 Bước Hành Động Tiếp Theo\n1. Kiểm tra trạng thái ví on-chain hoặc số dư trên Base Sepolia nếu bạn muốn thực hiện các thao tác giao dịch (như `get_wallet_info` hoặc kiểm tra số dư ERC-20).\n2. Khám phá các tính năng tích hợp công nghệ Web3 và cơ sở dữ liệu Supabase thông qua các câu lệnh tiếp theo của bạn.",
+        "createdAt": "2026-10-07T02:48:01.723Z",
+        "taskId": "task_1791341279493_n1175",
+        "memoriesUsed": [
+          "global:agentmaxx_pro_sử_dụng_mô_hình_"
+        ],
+        "steps": [],
+        "domain": "general"
+      }
+    ],
+    "currentTaskId": "task_1791341279493_n1175",
+    "currentTaskStatus": "succeeded",
+    "createdAt": "2026-10-07T02:48:01.723Z",
+    "updatedAt": "2026-10-07T02:48:01.723Z"
+  },
+  {
+    "id": "proj_1791341274964",
+    "userId": "guest_05cacf79c4384b76",
+    "title": "Kiến thức chung: AgentMaxx Pro sử dụng mô hìn...",
+    "objective": "Kiến thức chung: AgentMaxx Pro sử dụng mô hình hybrid execution kết hợp Supabase Cloud và Base Sepolia L2.",
+    "status": "ACTIVE",
+    "domain": "web3",
+    "messages": [
+      {
+        "id": "msg_1791341277048_0_cay",
+        "role": "user",
+        "text": "Kiến thức chung: AgentMaxx Pro sử dụng mô hình hybrid execution kết hợp Supabase Cloud và Base Sepolia L2.",
+        "content": "Kiến thức chung: AgentMaxx Pro sử dụng mô hình hybrid execution kết hợp Supabase Cloud và Base Sepolia L2.",
+        "createdAt": "2026-10-07T02:47:57.048Z"
+      },
+      {
+        "id": "msg_1791341277048_1_dtq",
+        "role": "agent",
+        "text": "Tôi đã ghi nhận thông tin kiến thức chung: **AgentMaxx Pro sử dụng mô hình hybrid execution kết hợp Supabase Cloud và Base Sepolia L2**. \n\nTôi đã lưu trữ điểm cốt lõi này vào hệ thống nhận thức của mình để phục vụ cho các yêu cầu nghiên cứu, lập kế hoạch, phát triển Web3 và phân tích dữ liệu tiếp theo. \n\nBạn có cần tôi hỗ trợ thực hiện tác vụ nào khác (như kiểm tra ví, phân tích smart contract, tính toán thanh khoản DeFi, hay tra cứu thông tin) không?",
+        "content": "Tôi đã ghi nhận thông tin kiến thức chung: **AgentMaxx Pro sử dụng mô hình hybrid execution kết hợp Supabase Cloud và Base Sepolia L2**. \n\nTôi đã lưu trữ điểm cốt lõi này vào hệ thống nhận thức của mình để phục vụ cho các yêu cầu nghiên cứu, lập kế hoạch, phát triển Web3 và phân tích dữ liệu tiếp theo. \n\nBạn có cần tôi hỗ trợ thực hiện tác vụ nào khác (như kiểm tra ví, phân tích smart contract, tính toán thanh khoản DeFi, hay tra cứu thông tin) không?",
+        "createdAt": "2026-10-07T02:47:57.048Z",
+        "taskId": "task_1791341274995_k2229",
+        "memoriesUsed": [],
+        "steps": [],
+        "domain": "web3"
+      }
+    ],
+    "currentTaskId": "task_1791341274995_k2229",
+    "currentTaskStatus": "succeeded",
+    "createdAt": "2026-10-07T02:47:57.048Z",
+    "updatedAt": "2026-10-07T02:47:57.048Z"
+  },
+  {
     "id": "proj_live_demo_1",
     "userId": "guest_c3507791afe74a42",
     "title": "Nhớ rằng tôi thích mạng Base Sepolia và token...",
