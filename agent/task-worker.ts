@@ -6,7 +6,7 @@ import {
   registerTaskAbortController,
   unregisterTaskAbortController,
 } from "@/agent/tasks";
-import { getProjectById } from "@/agent/projects";
+import { getProjectById, saveOrUpdateProject } from "@/agent/projects";
 import { validateCitationsAndAnalyzeEvidence } from "@/agent/citation-validator";
 
 /**
@@ -234,6 +234,36 @@ export async function executeBackgroundTask(params: {
       },
       userId
     );
+
+    // Auto-save project & all messages to storage and Supabase Cloud
+    if (projectId) {
+      try {
+        const fullMessages: import("@/agent/projects").ProjectMessage[] = [
+          ...messages.map((m) => ({ role: m.role, text: m.text, content: m.text })),
+          {
+            role: "agent",
+            text: result.answer,
+            content: result.answer,
+            domain: result.domain,
+            memoriesUsed: result.memoriesUsed,
+            steps: result.steps,
+            taskId,
+          },
+        ];
+        saveOrUpdateProject(
+          {
+            id: projectId,
+            domain: result.domain,
+            messages: fullMessages,
+            currentTaskId: taskId,
+            currentTaskStatus: "succeeded",
+          },
+          userId
+        );
+      } catch (saveErr) {
+        console.warn("[Worker] Auto-save project error:", saveErr);
+      }
+    }
   } catch (err: any) {
     if (isTaskCancelled(taskId) || controller.signal.aborted) {
       console.log(`[Worker] Task ${taskId} aborted on error boundary.`);

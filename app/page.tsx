@@ -25,6 +25,7 @@ import {
   Layers,
   LineChart,
   Lock,
+  Pencil,
   Plus,
   RefreshCw,
   RotateCcw,
@@ -41,6 +42,7 @@ import {
   User,
   Wallet,
   WalletCards,
+  X,
   Zap,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -286,6 +288,9 @@ export default function Home() {
   const [projectPage, setProjectPage] = useState(1);
   const [totalProjects, setTotalProjects] = useState(0);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
+  const [currentProjectTitle, setCurrentProjectTitle] = useState<string>("Tác vụ nghiên cứu");
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editingTitleVal, setEditingTitleVal] = useState("");
   const [currentProjectStatus, setCurrentProjectStatus] = useState<"ACTIVE" | "COMPLETED" | "PAUSED">("ACTIVE");
   const [currentTask, setCurrentTask] = useState<AgentTask | null>(null);
   const [sessionToken, setSessionToken] = useState<string>("");
@@ -785,15 +790,17 @@ export default function Home() {
     projId: string | null = currentProjectId,
     stat: "ACTIVE" | "COMPLETED" | "PAUSED" = currentProjectStatus,
     activeTaskId?: string,
-    activeTaskStat?: TaskStatus
+    activeTaskStat?: TaskStatus,
+    customTitle?: string
   ) {
-    if (msgs.length === 0) return;
+    if (msgs.length === 0 && !customTitle) return;
     try {
       const res = await fetch("/api/projects", {
         method: "POST",
         headers: getAuthHeaders(),
         body: JSON.stringify({
           id: projId || undefined,
+          title: customTitle || currentProjectTitle || undefined,
           status: stat,
           messages: msgs.filter((m) => !m.error),
           currentTaskId: activeTaskId || currentTask?.id,
@@ -803,6 +810,7 @@ export default function Home() {
       const data = await res.json();
       if (data.success && data.project) {
         setCurrentProjectId(data.project.id);
+        setCurrentProjectTitle(data.project.title || "Tác vụ");
         loadProjects();
       }
     } catch (err) {
@@ -810,12 +818,29 @@ export default function Home() {
     }
   }
 
-  function startNewTask() {
+  function startNewTask(customTitle?: string | React.MouseEvent) {
     setMessages([]);
-    setCurrentProjectId(null);
+    const newId = `proj_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    const titleStr = typeof customTitle === "string" && customTitle.trim() ? customTitle.trim() : "Tác vụ mới";
+    setCurrentProjectId(newId);
+    setCurrentProjectTitle(titleStr);
     setCurrentProjectStatus("ACTIVE");
     setCurrentTask(null);
     setInput("");
+    setActiveTab("workspace");
+  }
+
+  async function handleSaveProjectTitle() {
+    if (!editingTitleVal.trim()) {
+      setIsEditingTitle(false);
+      return;
+    }
+    const newTitle = editingTitleVal.trim();
+    setCurrentProjectTitle(newTitle);
+    setIsEditingTitle(false);
+    if (currentProjectId || messages.length > 0) {
+      await autoSaveProject(messages, currentProjectId, currentProjectStatus, undefined, undefined, newTitle);
+    }
   }
 
   async function resumeProject(p: ProjectTask) {
@@ -829,7 +854,9 @@ export default function Home() {
       if (data.project) {
         setMessages(data.project.messages || []);
         setCurrentProjectId(data.project.id);
+        setCurrentProjectTitle(data.project.title || "Tác vụ");
         setCurrentProjectStatus(data.project.status || "ACTIVE");
+        setActiveTab("workspace"); // Jump directly to chat workspace with loaded history
         if (data.tasks && data.tasks.length > 0) {
           setCurrentTask(data.tasks[0]);
         } else if (data.project.currentTaskId) {
@@ -2296,10 +2323,46 @@ export default function Home() {
           <CardHeader className="shrink-0 border-b px-4 py-3 bg-muted/30 flex flex-wrap items-center justify-between gap-2">
             <div className="flex flex-wrap items-center gap-2 font-mono text-xs">
               <Terminal className="size-4 text-primary" />
-              <span className="font-bold text-foreground uppercase">AgentMaxx Stateful Terminal</span>
+              
+              {/* Task Title & Inline Rename */}
+              {isEditingTitle ? (
+                <div className="flex items-center gap-1">
+                  <Input
+                    value={editingTitleVal}
+                    onChange={(e) => setEditingTitleVal(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleSaveProjectTitle();
+                      if (e.key === "Escape") setIsEditingTitle(false);
+                    }}
+                    autoFocus
+                    className="h-6 w-44 text-xs font-bold px-1.5 py-0 font-mono bg-background"
+                  />
+                  <Button size="icon" variant="ghost" className="size-6 text-emerald-500 hover:bg-emerald-500/10" onClick={handleSaveProjectTitle} title="Lưu tên tác vụ">
+                    <Check className="size-3" />
+                  </Button>
+                  <Button size="icon" variant="ghost" className="size-6 text-muted-foreground hover:bg-muted" onClick={() => setIsEditingTitle(false)} title="Hủy">
+                    <X className="size-3" />
+                  </Button>
+                </div>
+              ) : (
+                <div
+                  className="flex items-center gap-1.5 cursor-pointer hover:text-primary transition-colors group"
+                  onClick={() => {
+                    setEditingTitleVal(currentProjectTitle);
+                    setIsEditingTitle(true);
+                  }}
+                  title="Nhấp để đổi tên tác vụ"
+                >
+                  <span className="font-bold text-foreground uppercase max-w-[200px] sm:max-w-[260px] truncate">
+                    {currentProjectTitle}
+                  </span>
+                  <Pencil className="size-3 text-muted-foreground opacity-60 group-hover:opacity-100 group-hover:text-primary" />
+                </div>
+              )}
+
               {currentProjectId && (
                 <Badge variant="outline" className="text-[10px] text-muted-foreground">
-                  Proj: {currentProjectId.slice(-6)}
+                  ID: {currentProjectId.slice(-6)}
                 </Badge>
               )}
               {currentTask && (
