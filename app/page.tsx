@@ -355,6 +355,18 @@ export default function Home() {
             if (checkData.valid && checkData.token) {
               setSessionToken(checkData.token);
               setSessionUser(checkData.userId);
+              if (checkData.isWallet && checkData.address) {
+                setUserAccount(checkData.address);
+                const eth = (window as any).ethereum;
+                if (eth) {
+                  eth.request({ method: "eth_getBalance", params: [checkData.address, "latest"] })
+                    .then((rawBal: string) => {
+                      const ethVal = (parseInt(rawBal, 16) / 1e18).toFixed(4);
+                      setUserBalance(ethVal);
+                    })
+                    .catch(() => null);
+                }
+              }
               return checkData.token;
             }
           } catch {}
@@ -373,6 +385,9 @@ export default function Home() {
         }
         setSessionToken(data.token);
         setSessionUser(data.userId);
+        if (data.isWallet && data.address) {
+          setUserAccount(data.address);
+        }
         return data.token;
       }
     } catch (err) {
@@ -436,7 +451,33 @@ export default function Home() {
     fetch(`/api/projects?${params.toString()}`, { headers: getAuthHeaders(tok) })
       .then((r) => r.json())
       .then((d) => {
-        if (d.projects) setProjects(d.projects);
+        if (d.projects) {
+          setProjects(d.projects);
+          // Automatically restore active project messages into chat on reload if chat is currently empty
+          if (d.projects.length > 0) {
+            setMessages((prevMsgs) => {
+              if (prevMsgs.length === 0) {
+                const activeProj = d.projects.find((p: any) => p.status === "ACTIVE") || d.projects[0];
+                if (activeProj && activeProj.messages && activeProj.messages.length > 0) {
+                  setCurrentProjectId(activeProj.id);
+                  setCurrentProjectStatus(activeProj.status || "ACTIVE");
+                  if (activeProj.currentTaskId) {
+                    setCurrentTask({
+                      id: activeProj.currentTaskId,
+                      projectId: activeProj.id,
+                      userId: activeProj.userId,
+                      objective: activeProj.objective,
+                      status: activeProj.currentTaskStatus || "succeeded",
+                      createdAt: activeProj.createdAt,
+                    });
+                  }
+                  return activeProj.messages;
+                }
+              }
+              return prevMsgs;
+            });
+          }
+        }
         if (typeof d.total === "number") setTotalProjects(d.total);
       })
       .catch(() => null);
@@ -635,8 +676,15 @@ export default function Home() {
           });
           const authData = await authRes.json();
           if (authData.token) {
+            if (typeof window !== "undefined") {
+              localStorage.setItem("agentmaxx_session_token", authData.token);
+              localStorage.setItem("agentmaxx_user_account", acc);
+            }
             setSessionToken(authData.token);
             setSessionUser(authData.userId);
+            setUserAccount(acc);
+            setMessages([]);
+            setCurrentProjectId(null);
             loadProjects(authData.token);
             loadMemories(authData.token);
             loadProposals(authData.token);
@@ -682,8 +730,12 @@ export default function Home() {
   async function disconnectWallet() {
     setUserAccount(null);
     setUserBalance(null);
+    setMessages([]);
+    setCurrentProjectId(null);
+    setCurrentTask(null);
     if (typeof window !== "undefined") {
       localStorage.removeItem("agentmaxx_session_token");
+      localStorage.removeItem("agentmaxx_user_account");
     }
     const guestTok = await initSession();
     if (guestTok) {
